@@ -1,0 +1,22 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Temporary working files
+tmp/
+*.log
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+~$*
+
+# Local test data should stay out of Git unless anonymized
+test-uploads/

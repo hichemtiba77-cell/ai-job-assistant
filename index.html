@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="AI求职助手MVP：输入简历文字和岗位要求，查看岗位适配分析演示。"
+    />
+    <title>AI求职助手 · MVP</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="./index.html" aria-label="AI求职助手首页">
+          <span class="brand-mark">职</span>
+          <span>
+            <strong>AI求职助手</strong>
+            <small>岗位匹配与求职训练</small>
+          </span>
+        </a>
+        <div class="header-meta">
+          <span class="status-dot" aria-hidden="true"></span>
+          本地MVP演示
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div class="eyebrow">文字分析版 · 暂不连接DeepSeek</div>
+          <h1 id="page-title">让简历更接近目标岗位</h1>
+          <p class="hero-copy">
+            粘贴简历和招聘要求，先查看完整的分析展示效果。当前使用模拟数据，
+            后续会接入DeepSeek与PDF解析，但页面流程保持不变。
+          </p>
+          <div class="hero-meta">
+            <span>✓ 不读取真实文件</span>
+            <span>✓ 不需要注册账号</span>
+            <span>✓ 分析结果仅作演示</span>
+          </div>
+        </section>
+
+        <section class="input-grid" aria-label="求职材料输入">
+          <article class="input-card">
+            <div class="card-heading">
+              <span class="step-number">01</span>
+              <div>
+                <h2>你的简历</h2>
+                <p>先粘贴文字版本，PDF解析将在下一阶段接入。</p>
+              </div>
+            </div>
+            <label class="sr-only" for="resumeText">简历文字</label>
+            <textarea
+              id="resumeText"
+              data-source="text"
+              placeholder="例如：软件工程本科生，具备Python和SQL基础，参与过校园二手交易平台项目……"
+              spellcheck="false"
+            ></textarea>
+            <div class="input-footer">
+              <span id="resumeCount">0 字</span>
+              <button class="text-button" type="button" data-example="resume">
+                填入示例简历
+              </button>
+            </div>
+            <div class="future-note">
+              <span>PDF</span>
+              下一阶段会先提取文字并让你确认，再进入同一分析流程。
+            </div>
+          </article>
+
+          <article class="input-card">
+            <div class="card-heading">
+              <span class="step-number">02</span>
+              <div>
+                <h2>岗位招聘要求</h2>
+                <p>粘贴企业公开岗位信息或校园招聘要求。</p>
+              </div>
+            </div>
+            <label class="sr-only" for="jobText">岗位招聘要求</label>
+            <textarea
+              id="jobText"
+              placeholder="例如：招聘AI产品实习生，要求本科及以上学历，熟悉用户调研、数据分析，具备良好的沟通能力……"
+              spellcheck="false"
+            ></textarea>
+            <div class="input-footer">
+              <span id="jobCount">0 字</span>
+              <button class="text-button" type="button" data-example="job">
+                填入示例岗位
+              </button>
+            </div>
+            <div class="future-note">
+              <span>扩展</span>
+              后续会支持多个岗位，并生成岗位适配度排行。
+            </div>
+          </article>
+        </section>
+
+        <section class="action-panel" aria-label="开始分析">
+          <div class="mode-note">
+            <span class="mode-badge">模拟模式</span>
+            <div>
+              <strong>当前不会发送任何内容到网络</strong>
+              <p>按钮会生成一份可预览的模拟报告，用于先确定页面和输出格式。</p>
+            </div>
+          </div>
+          <button class="primary-button" id="analyzeButton" type="button">
+            <span class="button-label">开始分析</span>
+            <span class="button-arrow" aria-hidden="true">→</span>
+          </button>
+        </section>
+
+        <p class="form-message" id="formMessage" role="alert" aria-live="polite"></p>
+
+        <section class="results" id="results" aria-labelledby="resultsTitle" hidden>
+          <div class="results-heading">
+            <div>
+              <span class="section-kicker">模拟分析报告</span>
+              <h2 id="resultsTitle">岗位适配概览</h2>
+            </div>
+            <span class="mock-label">演示结果 · 尚未接入DeepSeek</span>
+          </div>
+
+          <div class="score-panel">
+            <div class="score-ring" id="scoreRing" aria-label="岗位适配总分">
+              <div>
+                <strong id="overallScore">--</strong>
+                <span>/ 100</span>
+              </div>
+            </div>
+            <div class="score-summary">
+              <div class="score-tags">
+                <span id="fitLevel">等待分析</span>
+                <span id="confidenceLevel">置信度：--</span>
+              </div>
+              <h3 id="summaryTitle">分析摘要</h3>
+              <p id="summaryText"></p>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="block-heading">
+              <h3>分项表现</h3>
+              <span>各维度满分100分</span>
+            </div>
+            <div class="dimension-grid" id="dimensionGrid"></div>
+          </div>
+
+          <div class="two-column-results">
+            <article class="result-card evidence-card">
+              <div class="result-card-heading">
+                <span class="result-icon">证</span>
+                <div>
+                  <h3>简历中的匹配证据</h3>
+                  <p>以后的真实分析会引用简历原文。</p>
+                </div>
+              </div>
+              <ul class="evidence-list" id="evidenceList"></ul>
+            </article>
+
+            <article class="result-card gap-card">
+              <div class="result-card-heading">
+                <span class="result-icon">差</span>
+                <div>
+                  <h3>需要补充的能力信息</h3>
+                  <p>“未找到”不等于“不具备”。</p>
+                </div>
+              </div>
+              <ul class="gap-list" id="gapList"></ul>
+            </article>
+          </div>
+
+          <div class="result-block">
+            <div class="block-heading">
+              <h3>硬性条件检查</h3>
+              <span>后续会由规则和AI共同检查</span>
+            </div>
+            <div class="constraint-list" id="constraintList"></div>
+          </div>
+
+          <div class="result-block suggestion-block">
+            <div class="block-heading">
+              <h3>简历修改建议</h3>
+              <span>只优化真实经历，不虚构内容</span>
+            </div>
+            <ol class="suggestion-list" id="suggestionList"></ol>
+          </div>
+
+          <div class="next-step-note">
+            <div>
+              <strong>下一阶段</strong>
+              <p>确认提示词和结果格式后，再接入DeepSeek；本轮不产生API调用费用。</p>
+            </div>
+            <a href="./deepseek-training/README.md">查看DeepSeek训练目录</a>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>AI求职助手 · 郑州大学首届AI智能体创新应用大赛</span>
+        <span>本地静态原型 · 2026.10</span>
+      </footer>
+    </div>
+
+    <script src="./data/examples.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
