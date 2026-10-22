@@ -33,6 +33,7 @@ styles.css                 页面样式
 app.js                     输入、模拟分析和结果渲染
 data/examples.js           示例简历与岗位
 deepseek-training/         提示词、测试案例和修改记录
+docs/                      竞品分析、PDF简历和虚拟形象方案
 assets/diagrams/           项目流程图和路线图
 output/pdf/                项目实施手册PDF
 tools/                     文档和图片生成工具

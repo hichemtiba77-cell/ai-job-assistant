@@ -10,10 +10,12 @@
   const resultsSection = document.querySelector("#results");
 
   const overallScore = document.querySelector("#overallScore");
+  const scoreDenominator = document.querySelector("#scoreDenominator");
   const scoreRing = document.querySelector("#scoreRing");
   const fitLevel = document.querySelector("#fitLevel");
   const confidenceLevel = document.querySelector("#confidenceLevel");
   const summaryText = document.querySelector("#summaryText");
+  const diagnosisNotice = document.querySelector("#diagnosisNotice");
   const dimensionGrid = document.querySelector("#dimensionGrid");
   const evidenceList = document.querySelector("#evidenceList");
   const gapList = document.querySelector("#gapList");
@@ -90,59 +92,135 @@
       (keyword) => !resumeLower.includes(keyword.toLowerCase()),
     );
     const evidence = findEvidence(resume, matchedSkills);
+    const sections = [
+      { name: "教育背景", found: /教育|学校|本科|硕士|博士|专业|毕业/.test(resume) },
+      { name: "项目或实习", found: /项目|实习|工作经历|实践经历/.test(resume) },
+      {
+        name: "技能信息",
+        found: /技能|能力|python|sql|excel|数据分析|沟通/i.test(resume),
+      },
+    ];
+    const foundSections = sections.filter((section) => section.found);
+    const hasProject = sections[1].found;
+    const hasMetrics =
+      /[0-9]+\s*(%|人|名|项|个|次|天|小时)|[0-9]+(?:\.[0-9]+)?%/.test(resume);
+    const hasAvailability =
+      /每周|每周[一二三四五六日天\d]|实习\d*天|到岗|连续实习|可实习/.test(resume);
+    const jobNeedsAvailability =
+      /每周|实习天数|到岗|连续实习|至少.*月/.test(job);
 
-    const skillScore = clamp(58 + matchedSkills.length * 5.5);
-    const projectScore = clamp(
-      61 +
-        (resume.includes("项目") ? 13 : 0) +
-        (resume.includes("负责") ? 7 : 0) +
-        (resume.includes("上线") || resume.includes("结果") ? 6 : 0),
-    );
-    const educationScore = clamp(
-      resume.includes("本科") || resume.includes("硕士") || resume.includes("博士")
-        ? 82
-        : 65,
-    );
+    const reviewReasons = [];
+    if (resume.length < 120) {
+      reviewReasons.push("简历文字较少");
+    }
+    if (foundSections.length < 2) {
+      reviewReasons.push("缺少至少两类核心信息");
+    }
+    if (matchedSkills.length === 0) {
+      reviewReasons.push("尚未找到岗位相关技能证据");
+    }
+    if (!hasProject) {
+      reviewReasons.push("尚未找到项目或实习经历");
+    }
+
+    const canScore =
+      resume.length >= 120 &&
+      foundSections.length >= 2 &&
+      matchedSkills.length > 0 &&
+      hasProject &&
+      job.length >= 60;
+
+    const skillScore = canScore
+      ? clamp((matchedSkills.length / Math.max(requestedSkills.length, 1)) * 100)
+      : null;
+    const projectScore = canScore
+      ? clamp(
+          35 +
+            (/负责|主导|参与/.test(resume) ? 15 : 0) +
+            (hasMetrics ? 25 : 0) +
+            (/上线|发布|结果|提升|降低|增长|完成/.test(resume) ? 15 : 0) +
+            (/团队|协作|沟通/.test(resume) ? 10 : 0),
+        )
+      : null;
+
+    const degreeRank = { 本科: 3, 硕士: 4, 博士: 5 };
+    const resumeDegree = Object.keys(degreeRank).find((degree) => resume.includes(degree));
+    const requiredDegree = Object.keys(degreeRank).find((degree) => job.includes(degree));
+    let educationScore = null;
+    if (canScore) {
+      if (requiredDegree && resumeDegree) {
+        educationScore =
+          degreeRank[resumeDegree] >= degreeRank[requiredDegree] ? 100 : 40;
+      } else if (requiredDegree) {
+        educationScore = 0;
+      } else {
+        educationScore = resumeDegree ? 70 : 0;
+      }
+    }
+
+    const conditionScore = canScore
+      ? jobNeedsAvailability
+        ? hasAvailability
+          ? 100
+          : 0
+        : 60
+      : null;
     const completenessScore = clamp(
-      50 +
-        (resume.length >= 180 ? 14 : 0) +
-        (resume.length >= 320 ? 8 : 0) +
-        (evidence.length > 0 ? 12 : 0) +
-        (job.length >= 100 ? 6 : 0),
+      Math.min(resume.length / 5, 45) +
+        foundSections.length * 12 +
+        (hasProject ? 10 : 0) +
+        (hasMetrics ? 6 : 0) +
+        (job.length >= 100 ? 3 : 0),
     );
-    const overall = clamp(
-      skillScore * 0.35 +
-        projectScore * 0.3 +
-        educationScore * 0.15 +
-        completenessScore * 0.2,
-    );
+    const overall = canScore
+      ? clamp(
+          skillScore * 0.35 +
+            projectScore * 0.3 +
+            educationScore * 0.15 +
+            conditionScore * 0.1 +
+            completenessScore * 0.1,
+        )
+      : null;
 
     const dimensions = [
       {
         name: "技能匹配",
         score: skillScore,
-        detail:
-          matchedSkills.length > 0
-            ? `找到 ${matchedSkills.slice(0, 4).join("、")} 等岗位相关技能。`
-            : "简历中没有找到明显对应岗位的技能词。",
+        detail: canScore
+          ? `岗位识别的 ${requestedSkills.length} 项技能中，简历提供了 ${matchedSkills.length} 项明确证据。`
+          : "材料不足，暂不形成技能分数。",
       },
       {
         name: "经历与项目",
         score: projectScore,
-        detail:
-          projectScore >= 80
-            ? "项目描述包含职责和结果，具备进一步量化表达的基础。"
-            : "建议补充项目规模、个人职责和可验证结果。",
+        detail: canScore
+          ? "根据项目是否存在、个人职责、结果表达和数字证据计算。"
+          : "还没有找到可用于判断的项目或实习经历。",
       },
       {
-        name: "教育背景",
+        name: "教育与岗位条件",
         score: educationScore,
-        detail: "当前只做演示判断，真实规则会结合岗位学历和专业要求。",
+        detail: canScore
+          ? requiredDegree
+            ? `岗位出现“${requiredDegree}”要求，已单独核对简历学历。`
+            : "岗位未明确学历门槛，暂按教育信息完整度判断。"
+          : "学历、专业和毕业时间信息不足。",
       },
       {
-        name: "信息完整度",
+        name: "到岗与其他条件",
+        score: conditionScore,
+        detail: canScore
+          ? jobNeedsAvailability
+            ? hasAvailability
+              ? "岗位有到岗要求，简历也提供了时间信息。"
+              : "岗位有到岗要求，简历尚未说明每周天数和实习周期。"
+            : "岗位未明确到岗要求，暂按已提供的其他条件判断。"
+          : "材料不足，暂不判断到岗和其他条件。",
+      },
+      {
+        name: "简历信息完整度",
         score: completenessScore,
-        detail: "检查简历和岗位文本是否足够完整，便于后续分析。",
+        detail: `当前识别到${foundSections.length}类核心信息；这部分只衡量材料是否完整，不代替岗位匹配结论。`,
       },
     ];
 
@@ -156,6 +234,9 @@
     }
     if (!/每周|实习天数|到岗/.test(resume)) {
       gaps.push("简历中未说明每周可到岗天数和实习周期。");
+    }
+    if (!hasProject) {
+      gaps.push("简历中尚未提供项目、实习或实践经历，难以证明岗位能力如何落地。");
     }
     if (!/[0-9]+[%人天]|[0-9]+\s*(名|人|项|个)/.test(resume)) {
       gaps.push("项目成果中的规模、效率或人数等数字还不够明确。");
@@ -193,20 +274,40 @@
       },
       {
         name: "学历与到岗条件",
-        status: /本科|硕士|博士/.test(resume) ? "partial" : "unknown",
-        label: /本科|硕士|博士/.test(resume) ? "部分信息" : "未找到",
+        status:
+          resumeDegree && (!jobNeedsAvailability || hasAvailability)
+            ? "met"
+            : resumeDegree
+              ? "partial"
+              : "unknown",
+        label:
+          resumeDegree && (!jobNeedsAvailability || hasAvailability)
+            ? "信息较完整"
+            : resumeDegree
+              ? "部分信息"
+              : "未找到",
         detail: "学历、专业和实习时间需要逐项与岗位要求核对。",
       },
     ];
 
     return {
       score: overall,
-      fitLevel: overall >= 82 ? "较为匹配" : overall >= 70 ? "部分匹配" : "需要补充",
-      confidence: evidence.length >= 2 ? "中" : "低",
-      summary:
-        evidence.length >= 2
-          ? "简历能够提供部分与岗位相关的技能和项目证据，但仍有信息需要补充。建议优先完善项目成果和到岗条件。"
-          : "当前材料中的岗位对应证据较少。建议先补充真实技能、项目职责和结果，再重新评估。",
+      fitLevel: canScore
+        ? overall >= 82
+          ? "较为匹配"
+          : overall >= 65
+            ? "部分匹配"
+            : overall >= 45
+              ? "证据偏弱"
+              : "匹配不足"
+        : "材料不足",
+      confidence: canScore ? (evidence.length >= 2 && resume.length >= 220 ? "中" : "低") : "低",
+      summary: canScore
+        ? "当前分数只根据已有证据计算；没有找到的内容会降低分数或标记为待补充。建议优先完善岗位要求的直接证据和可验证结果。"
+        : "这份材料还不足以形成可靠分数。请补充教育背景、项目或实习经历，以及至少一项与岗位直接相关的技能证据。",
+      notice: canScore
+        ? ""
+        : `暂不出总分：${reviewReasons.join("、")}。这表示材料不足，不代表你一定不适合该岗位。`,
       dimensions,
       strengths,
       gaps,
@@ -218,18 +319,21 @@
   function renderDimensions(dimensions) {
     dimensionGrid.innerHTML = dimensions
       .map(
-        (item) => `
-          <div class="dimension-item">
+        (item) => {
+          const hasScore = Number.isFinite(item.score);
+          return `
+          <div class="dimension-item${hasScore ? "" : " is-unknown"}">
             <div class="dimension-top">
               <strong>${escapeHtml(item.name)}</strong>
-              <span>${item.score} / 100</span>
+              <span>${hasScore ? `${item.score} / 100` : "暂不评分"}</span>
             </div>
             <div class="dimension-track" aria-hidden="true">
-              <div class="dimension-fill" style="width: ${item.score}%"></div>
+              <div class="dimension-fill" style="width: ${hasScore ? item.score : 0}%"></div>
             </div>
             <p>${escapeHtml(item.detail)}</p>
           </div>
-        `,
+        `;
+        },
       )
       .join("");
   }
@@ -259,8 +363,15 @@
   }
 
   function renderAnalysis(analysis) {
-    overallScore.textContent = analysis.score;
-    scoreRing.style.setProperty("--score", analysis.score);
+    const hasScore = Number.isFinite(analysis.score);
+    overallScore.textContent = hasScore ? analysis.score : "—";
+    scoreDenominator.textContent = hasScore ? "/ 100" : "暂不评分";
+    scoreRing.classList.toggle("is-empty", !hasScore);
+    scoreRing.style.setProperty("--score", hasScore ? analysis.score : 0);
+    diagnosisNotice.hidden = !analysis.notice;
+    diagnosisNotice.innerHTML = analysis.notice
+      ? `<strong>先补齐材料，再判断岗位匹配</strong>${escapeHtml(analysis.notice)}`
+      : "";
     fitLevel.textContent = analysis.fitLevel;
     confidenceLevel.textContent = `置信度：${analysis.confidence}`;
     summaryText.textContent = analysis.summary;
@@ -296,7 +407,7 @@
     }
 
     if (resume.length < 30) {
-      formMessage.textContent = "简历内容过短，请至少提供一段完整的教育或项目经历。";
+      formMessage.textContent = "简历内容过短，请至少提供一段真实的教育、项目或实习经历。";
       resumeInput.focus();
       return;
     }
@@ -315,18 +426,18 @@
 
     analyzeButton.disabled = true;
     analyzeButton.classList.add("is-loading");
-    analyzeButton.querySelector(".button-label").textContent = "正在生成演示结果";
+    analyzeButton.querySelector(".button-label").textContent = "正在生成求职诊断";
 
     try {
       const analysis = await analyzeResumeText(resume, job);
       renderAnalysis(analysis);
     } catch (error) {
-      formMessage.textContent = "模拟分析失败，请稍后重试。";
+      formMessage.textContent = "求职诊断生成失败，请稍后重试。";
       console.error(error);
     } finally {
       analyzeButton.disabled = false;
       analyzeButton.classList.remove("is-loading");
-      analyzeButton.querySelector(".button-label").textContent = "重新分析";
+      analyzeButton.querySelector(".button-label").textContent = "重新诊断";
     }
   }
 
@@ -341,11 +452,16 @@
   if (window.AIJobAssistantExamples) {
     fillExample("resume");
     fillExample("job");
-    formMessage.textContent = "示例内容已填入，可以直接点击“开始分析”查看效果。";
+    formMessage.textContent = "示例内容已填入，可以直接点击“诊断简历匹配度”查看效果。";
   }
 
-  const demoMode = new URLSearchParams(window.location.search).get("demo") === "1";
-  if (demoMode) {
+  const demoMode = new URLSearchParams(window.location.search).get("demo");
+  if (demoMode === "short") {
+    resumeInput.value =
+      "张同学\n软件工程专业本科生，预计2027年毕业\n郑州大学 软件工程 本科\n主修课程：数据结构、数据库原理、Python程序设计、机器学习基础";
+    updateCount(resumeInput, resumeCount);
+    window.setTimeout(handleAnalyze, 250);
+  } else if (demoMode === "1") {
     window.setTimeout(handleAnalyze, 250);
   }
 })();

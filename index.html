@@ -22,32 +22,67 @@
         </a>
         <div class="header-meta">
           <span class="status-dot" aria-hidden="true"></span>
-          本地MVP演示
+          校园招聘 · 本地演示
         </div>
       </header>
 
       <main>
         <section class="hero" aria-labelledby="page-title">
-          <div class="eyebrow">文字分析版 · 暂不连接DeepSeek</div>
-          <h1 id="page-title">让简历更接近目标岗位</h1>
-          <p class="hero-copy">
-            粘贴简历和招聘要求，先查看完整的分析展示效果。当前使用模拟数据，
-            后续会接入DeepSeek与PDF解析，但页面流程保持不变。
-          </p>
-          <div class="hero-meta">
-            <span>✓ 不读取真实文件</span>
-            <span>✓ 不需要注册账号</span>
-            <span>✓ 分析结果仅作演示</span>
+          <div class="hero-main">
+            <div class="eyebrow">AI求职助手 · 校园招聘与实习</div>
+            <h1 id="page-title">别海投。先看清这份岗位适不适合你。</h1>
+            <p class="hero-copy">
+              粘贴简历和目标岗位，像招聘官一样逐条对照：哪条有证据、哪条是差距、
+              投递前先改什么。信息不足时，我们不会强行给高分。
+            </p>
+            <div class="hero-meta">
+              <span>✓ 每条结论对应简历证据</span>
+              <span>✓ 不编造实习和项目经历</span>
+              <span>✓ 材料不足时提示补充</span>
+            </div>
           </div>
+          <aside class="hero-preview" aria-label="求职诊断示例">
+            <div class="preview-heading">
+              <span>求职诊断</span>
+              <strong>先证据，后分数</strong>
+            </div>
+            <div class="preview-job">
+              <span>目标岗位</span>
+              <strong>AI产品实习生</strong>
+              <div>
+                <em>用户调研</em>
+                <em>数据分析</em>
+                <em>项目经历</em>
+              </div>
+            </div>
+            <div class="preview-checks">
+              <div><strong>4</strong><span>岗位要求</span></div>
+              <div><strong>3</strong><span>证据检查</span></div>
+              <div><strong>2</strong><span>优先修改</span></div>
+            </div>
+            <p>材料不足时暂不评分，先告诉你缺什么。</p>
+          </aside>
         </section>
+
+        <ol class="journey-steps" aria-label="求职诊断流程">
+          <li><span>01</span><strong>粘贴简历</strong><small>放入真实经历</small></li>
+          <li><span>02</span><strong>添加岗位</strong><small>明确招聘要求</small></li>
+          <li><span>03</span><strong>查看诊断</strong><small>找到证据与差距</small></li>
+          <li><span>04</span><strong>准备下一步</strong><small>修改简历与面试</small></li>
+        </ol>
+
+        <div class="workspace-heading">
+          <span>开始一次求职诊断</span>
+          <h2>先看目标岗位，再改自己的简历</h2>
+        </div>
 
         <section class="input-grid" aria-label="求职材料输入">
           <article class="input-card">
             <div class="card-heading">
               <span class="step-number">01</span>
               <div>
-                <h2>你的简历</h2>
-                <p>先粘贴文字版本，PDF解析将在下一阶段接入。</p>
+                <h2>简历材料</h2>
+                <p>先放入真实的教育、项目、实习和技能信息。</p>
               </div>
             </div>
             <label class="sr-only" for="resumeText">简历文字</label>
@@ -60,12 +95,12 @@
             <div class="input-footer">
               <span id="resumeCount">0 字</span>
               <button class="text-button" type="button" data-example="resume">
-                填入示例简历
+                加载示例简历
               </button>
             </div>
             <div class="future-note">
               <span>PDF</span>
-              下一阶段会先提取文字并让你确认，再进入同一分析流程。
+              下一阶段先提取文字并让你确认，再进入同一求职诊断流程。
             </div>
           </article>
 
@@ -73,8 +108,8 @@
             <div class="card-heading">
               <span class="step-number">02</span>
               <div>
-                <h2>岗位招聘要求</h2>
-                <p>粘贴企业公开岗位信息或校园招聘要求。</p>
+                <h2>目标岗位</h2>
+                <p>粘贴企业公开岗位或校园招聘要求，系统会逐条寻找证据。</p>
               </div>
             </div>
             <label class="sr-only" for="jobText">岗位招聘要求</label>
@@ -86,26 +121,26 @@
             <div class="input-footer">
               <span id="jobCount">0 字</span>
               <button class="text-button" type="button" data-example="job">
-                填入示例岗位
+                加载示例岗位
               </button>
             </div>
             <div class="future-note">
-              <span>扩展</span>
-              后续会支持多个岗位，并生成岗位适配度排行。
+              <span>多岗位</span>
+              后续会支持岗位对比，并告诉你优先准备哪一个。
             </div>
           </article>
         </section>
 
         <section class="action-panel" aria-label="开始分析">
           <div class="mode-note">
-            <span class="mode-badge">模拟模式</span>
+            <span class="mode-badge">本地模拟</span>
             <div>
-              <strong>当前不会发送任何内容到网络</strong>
-              <p>按钮会生成一份可预览的模拟报告，用于先确定页面和输出格式。</p>
+              <strong>先验证求职诊断结构，不发送任何内容</strong>
+              <p>评分和修改建议仅用于确认页面，正式AI规则仍在校准。</p>
             </div>
           </div>
           <button class="primary-button" id="analyzeButton" type="button">
-            <span class="button-label">开始分析</span>
+            <span class="button-label">诊断简历匹配度</span>
             <span class="button-arrow" aria-hidden="true">→</span>
           </button>
         </section>
@@ -115,33 +150,35 @@
         <section class="results" id="results" aria-labelledby="resultsTitle" hidden>
           <div class="results-heading">
             <div>
-              <span class="section-kicker">模拟分析报告</span>
-              <h2 id="resultsTitle">岗位适配概览</h2>
+              <span class="section-kicker">招聘官视角 · 求职诊断</span>
+              <h2 id="resultsTitle">投递前诊断</h2>
             </div>
-            <span class="mock-label">演示结果 · 尚未接入DeepSeek</span>
+            <span class="mock-label">结构演示 · 评分规则待校准</span>
           </div>
+
+          <div class="diagnosis-notice" id="diagnosisNotice" role="status" hidden></div>
 
           <div class="score-panel">
             <div class="score-ring" id="scoreRing" aria-label="岗位适配总分">
               <div>
                 <strong id="overallScore">--</strong>
-                <span>/ 100</span>
+                <span id="scoreDenominator">/ 100</span>
               </div>
             </div>
             <div class="score-summary">
               <div class="score-tags">
-                <span id="fitLevel">等待分析</span>
+                <span id="fitLevel">等待诊断</span>
                 <span id="confidenceLevel">置信度：--</span>
               </div>
-              <h3 id="summaryTitle">分析摘要</h3>
+              <h3 id="summaryTitle">招聘官会怎么判断</h3>
               <p id="summaryText"></p>
             </div>
           </div>
 
           <div class="result-block">
             <div class="block-heading">
-              <h3>分项表现</h3>
-              <span>各维度满分100分</span>
+              <h3>招聘官关注的分项证据</h3>
+              <span>分数与证据覆盖直接相关</span>
             </div>
             <div class="dimension-grid" id="dimensionGrid"></div>
           </div>
@@ -151,8 +188,8 @@
               <div class="result-card-heading">
                 <span class="result-icon">证</span>
                 <div>
-                  <h3>简历中的匹配证据</h3>
-                  <p>以后的真实分析会引用简历原文。</p>
+                  <h3>招聘官会认可的证据</h3>
+                  <p>真实分析会引用简历原文，不做无依据夸奖。</p>
                 </div>
               </div>
               <ul class="evidence-list" id="evidenceList"></ul>
@@ -162,8 +199,8 @@
               <div class="result-card-heading">
                 <span class="result-icon">差</span>
                 <div>
-                  <h3>需要补充的能力信息</h3>
-                  <p>“未找到”不等于“不具备”。</p>
+                  <h3>招聘官可能继续追问的差距</h3>
+                  <p>“未找到”不等于“不具备”，需要你补充真实材料。</p>
                 </div>
               </div>
               <ul class="gap-list" id="gapList"></ul>
@@ -172,26 +209,26 @@
 
           <div class="result-block">
             <div class="block-heading">
-              <h3>硬性条件检查</h3>
-              <span>后续会由规则和AI共同检查</span>
+              <h3>硬性门槛检查</h3>
+              <span>学历、到岗等条件不能藏在总分里</span>
             </div>
             <div class="constraint-list" id="constraintList"></div>
           </div>
 
           <div class="result-block suggestion-block">
             <div class="block-heading">
-              <h3>简历修改建议</h3>
-              <span>只优化真实经历，不虚构内容</span>
+              <h3>投递前优先修改</h3>
+              <span>只优化真实经历，不为关键词编造内容</span>
             </div>
             <ol class="suggestion-list" id="suggestionList"></ol>
           </div>
 
           <div class="next-step-note">
             <div>
-              <strong>下一阶段</strong>
-              <p>确认提示词和结果格式后，再接入DeepSeek；本轮不产生API调用费用。</p>
+              <strong>下一阶段：先完善MVP，再接入DeepSeek</strong>
+              <p>当前先校准评分、页面结构和求职主题，后续再验证AI提示词。</p>
             </div>
-            <a href="./deepseek-training/README.md">查看DeepSeek训练目录</a>
+            <a href="./deepseek-training/prompts/job-match-v0.1.md">查看评分与提示词规则</a>
           </div>
         </section>
       </main>
