@@ -20,3 +20,10 @@ Thumbs.db
 
 # Local test data should stay out of Git unless anonymized
 test-uploads/
+
+# Private competition and personal application materials
+赛事文件/
+output/docx/
+
+# Generated upload packages
+output/github/
