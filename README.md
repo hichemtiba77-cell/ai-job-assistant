@@ -12,6 +12,11 @@ GitHub仓库创建、邀请队友、分支和Pull Request规则见：
 
 [GitHub协作指南](./GITHUB协作指南.md)
 
+## 独立设计原型
+
+- [HR评审桌界面原型](./hr-review-desk.html)
+- [求职档案标签关系图](./assets/diagrams/08-求职档案标签关系.png)
+
 ## 当前阶段
 
 当前为本地静态MVP：

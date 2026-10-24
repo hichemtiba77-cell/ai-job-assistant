@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="职引者HR评审桌UI概念原型：诊断、证据、差距和修改处方四个标签页。"
+    />
+    <title>HR评审桌 · 职引者</title>
+    <link rel="stylesheet" href="./hr-review-desk.css" />
+  </head>
+  <body>
+    <div class="campus-mask" aria-hidden="true">
+      <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#081b2e" />
+            <stop offset="1" stop-color="#12324a" />
+          </linearGradient>
+          <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#17384d" />
+            <stop offset="1" stop-color="#091b29" />
+          </linearGradient>
+        </defs>
+        <rect width="1600" height="900" fill="url(#sky)" />
+        <circle cx="1270" cy="180" r="78" fill="#dbeafe" opacity=".12" />
+        <circle cx="1270" cy="180" r="42" fill="#eff6ff" opacity=".12" />
+        <path
+          d="M0 590 C210 545 380 555 560 610 C760 670 910 650 1100 600 C1300 545 1470 555 1600 600 L1600 900 L0 900 Z"
+          fill="url(#ground)"
+        />
+        <g fill="none" stroke="#b7d8e8" stroke-width="5" opacity=".18">
+          <path d="M80 590V282h310v308M390 590V236h430v354M820 590V310h350v280M1170 590V260h340v330" />
+          <path d="M90 330h290M390 300h430M830 350h330M1180 320h320" />
+          <path d="M90 390h290M390 360h430M830 410h330M1180 380h320" />
+          <path d="M90 450h290M390 420h430M830 470h330M1180 440h320" />
+          <path d="M180 282v308M300 282v308M500 236v354M700 236v354M900 310v280M1080 310v280M1250 260v330M1420 260v330" />
+        </g>
+        <g fill="#d9f1ff" opacity=".24">
+          <rect x="116" y="342" width="26" height="38" />
+          <rect x="196" y="342" width="26" height="38" />
+          <rect x="276" y="402" width="26" height="38" />
+          <rect x="446" y="312" width="30" height="42" />
+          <rect x="566" y="312" width="30" height="42" />
+          <rect x="686" y="372" width="30" height="42" />
+          <rect x="886" y="362" width="26" height="36" />
+          <rect x="1016" y="422" width="26" height="36" />
+          <rect x="1246" y="332" width="28" height="40" />
+          <rect x="1376" y="392" width="28" height="40" />
+        </g>
+        <path d="M0 705 C300 675 480 720 730 705 C980 690 1200 665 1600 710" fill="none" stroke="#bfe8d8" stroke-width="3" opacity=".16" />
+      </svg>
+      <!-- 正式版可在同一位置替换为获得授权的郑州大学校园照片。 -->
+    </div>
+
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">职</span>
+          <span><strong>职引者</strong><small>HR评审桌 · UI概念原型</small></span>
+        </a>
+        <span class="prototype-label">原型预览 02</span>
+      </header>
+
+      <main class="desk-layout">
+        <section class="case-file" aria-labelledby="case-title">
+          <header class="case-heading">
+            <div>
+              <span class="case-kicker">校园求职档案 · 模拟评审</span>
+              <h1 id="case-title">AI产品实习生</h1>
+              <p>张同学 · 软件工程本科 · 2027届</p>
+            </div>
+            <div class="review-stamp">
+              <span>评审结论</span>
+              <strong>需补证据</strong>
+            </div>
+          </header>
+
+          <div class="summary-strip">
+            <div><span>匹配参考</span><strong>76</strong><small>/ 100</small></div>
+            <div><span>证据可靠度</span><strong>中</strong><small>2项待确认</small></div>
+            <div><span>硬性门槛</span><strong>部分满足</strong><small>到岗时间未写</small></div>
+            <p><b>招聘官判断</b>具备相关项目和技术基础，但用户调研与实习稳定性需要进一步证明。</p>
+          </div>
+
+          <div class="folder-tabs" role="tablist" aria-label="求职档案内容">
+            <button
+              class="folder-tab is-active"
+              id="tab-diagnosis"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="panel-diagnosis"
+              data-tab="diagnosis"
+            >
+              <span>01</span>诊断概览
+            </button>
+            <button
+              class="folder-tab"
+              id="tab-evidence"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-evidence"
+              data-tab="evidence"
+              tabindex="-1"
+            >
+              <span>02</span>证据核对
+            </button>
+            <button
+              class="folder-tab"
+              id="tab-gaps"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-gaps"
+              data-tab="gaps"
+              tabindex="-1"
+            >
+              <span>03</span>差距检查
+            </button>
+            <button
+              class="folder-tab"
+              id="tab-actions"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-actions"
+              data-tab="actions"
+              tabindex="-1"
+            >
+              <span>04</span>修改处方
+            </button>
+          </div>
+
+          <div class="paper">
+            <section
+              class="tab-panel is-active"
+              id="panel-diagnosis"
+              role="tabpanel"
+              aria-labelledby="tab-diagnosis"
+              data-panel="diagnosis"
+            >
+              <div class="panel-heading">
+                <div>
+                  <span>招聘官视角</span>
+                  <h2>先看这个岗位最在意什么</h2>
+                </div>
+                <em>材料足够形成初步判断</em>
+              </div>
+
+              <div class="diagnosis-grid">
+                <article class="score-board">
+                  <span>岗位匹配参考</span>
+                  <strong>76</strong>
+                  <small>部分匹配 · 置信度中等</small>
+                  <p>技能和项目证据较好，到岗条件与调研细节仍是主要不确定项。</p>
+                </article>
+                <div class="dimension-board">
+                  <div class="dimension">
+                    <div><b>核心技能</b><span>60</span></div>
+                    <i><em style="width: 60%"></em></i>
+                    <p>Python、SQL、数据分析有基础，用户调研和产品原型证据不足。</p>
+                  </div>
+                  <div class="dimension">
+                    <div><b>项目与经历</b><span>83</span></div>
+                    <i><em style="width: 83%"></em></i>
+                    <p>有真实校园项目和个人职责，项目规模与结果可以继续量化。</p>
+                  </div>
+                  <div class="dimension">
+                    <div><b>教育相关性</b><span>90</span></div>
+                    <i><em style="width: 90%"></em></i>
+                    <p>软件工程本科与岗位方向相关，毕业时间符合实习场景。</p>
+                  </div>
+                  <div class="dimension">
+                    <div><b>到岗与完整性</b><span>42</span></div>
+                    <i><em style="width: 42%"></em></i>
+                    <p>简历尚未说明每周实习天数和连续实习周期。</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section
+              class="tab-panel"
+              id="panel-evidence"
+              role="tabpanel"
+              aria-labelledby="tab-evidence"
+              data-panel="evidence"
+              hidden
+            >
+              <div class="panel-heading">
+                <div>
+                  <span>逐条对照</span>
+                  <h2>招聘官认可哪些证据</h2>
+                </div>
+                <em>每条结论都可回到简历原文</em>
+              </div>
+
+              <div class="evidence-table">
+                <article>
+                  <div class="evidence-status direct">直接证据</div>
+                  <div>
+                    <b>岗位要求</b>
+                    <p>熟悉Python或SQL，具备基础数据分析能力。</p>
+                    <blockquote>使用Python和SQL完成商品信息管理，并完成数据清洗和可视化。</blockquote>
+                  </div>
+                  <div class="level-pair"><span>相关度 4/4</span><span>证据 3/4</span></div>
+                </article>
+                <article>
+                  <div class="evidence-status partial">表达缺口</div>
+                  <div>
+                    <b>岗位要求</b>
+                    <p>能够参与用户调研和需求分析。</p>
+                    <blockquote>参与用户调研并根据反馈优化商品搜索流程。</blockquote>
+                  </div>
+                  <div class="level-pair"><span>相关度 4/4</span><span>证据 1/4</span></div>
+                </article>
+                <article>
+                  <div class="evidence-status unknown">证据不足</div>
+                  <div>
+                    <b>岗位要求</b>
+                    <p>每周可实习4天以上，连续实习3个月。</p>
+                    <blockquote>简历中未找到明确到岗时间。</blockquote>
+                  </div>
+                  <div class="level-pair"><span>相关度 4/4</span><span>证据 0/4</span></div>
+                </article>
+              </div>
+            </section>
+
+            <section
+              class="tab-panel"
+              id="panel-gaps"
+              role="tabpanel"
+              aria-labelledby="tab-gaps"
+              data-panel="gaps"
+              hidden
+            >
+              <div class="panel-heading">
+                <div>
+                  <span>风险检查</span>
+                  <h2>面试官下一步会追问什么</h2>
+                </div>
+                <em>“未找到”不等于“不具备”</em>
+              </div>
+
+              <div class="gap-grid">
+                <article class="hard-check">
+                  <h3>硬性门槛</h3>
+                  <p><span class="dot ok"></span><b>学历</b>本科，已满足</p>
+                  <p><span class="dot ok"></span><b>专业</b>软件工程，直接相关</p>
+                  <p><span class="dot warn"></span><b>到岗</b>未说明每周天数，待确认</p>
+                </article>
+                <article class="risk-card">
+                  <span>高优先级追问</span>
+                  <h3>“你做了哪些用户调研？”</h3>
+                  <p>简历只有方法名称，缺少调研对象、人数、问题、发现和最终决策。</p>
+                  <div>
+                    <span>调研对象</span><span>样本数量</span><span>个人结论</span>
+                  </div>
+                </article>
+                <article class="risk-card">
+                  <span>中优先级追问</span>
+                  <h3>“这个项目你具体负责哪部分？”</h3>
+                  <p>当前描述提到负责需求分析和后端接口，团队分工可以再具体。</p>
+                  <div><span>个人模块</span><span>技术难点</span><span>上线结果</span></div>
+                </article>
+              </div>
+            </section>
+
+            <section
+              class="tab-panel"
+              id="panel-actions"
+              role="tabpanel"
+              aria-labelledby="tab-actions"
+              data-panel="actions"
+              hidden
+            >
+              <div class="panel-heading">
+                <div>
+                  <span>投递前行动</span>
+                  <h2>优先修改这三处</h2>
+                </div>
+                <em>只补真实信息，不堆关键词</em>
+              </div>
+
+              <ol class="action-list">
+                <li>
+                  <span>01</span>
+                  <div>
+                    <b>补全用户调研证据</b>
+                    <p>说明调研对象、样本数量、使用的方法、发现的问题，以及你推动了什么调整。</p>
+                    <small>对应要求：用户调研与需求分析</small>
+                  </div>
+                  <button type="button">进入修改</button>
+                </li>
+                <li>
+                  <span>02</span>
+                  <div>
+                    <b>明确个人职责与结果</b>
+                    <p>把“负责后端接口”细化为具体模块、技术难点、协作对象和项目结果。</p>
+                    <small>对应要求：项目经历与独立承担能力</small>
+                  </div>
+                  <button type="button">定位原句</button>
+                </li>
+                <li>
+                  <span>03</span>
+                  <div>
+                    <b>补充实习时间条件</b>
+                    <p>如果信息属实，写明每周可到岗天数和可连续实习的起止时间。</p>
+                    <small>对应要求：每周4天、连续3个月</small>
+                  </div>
+                  <button type="button">补充信息</button>
+                </li>
+              </ol>
+            </section>
+          </div>
+        </section>
+
+        <aside class="review-note" aria-label="招聘官批注">
+          <span class="note-label">HR桌面批注</span>
+          <h2>这份简历已经能进入筛选，但还不足以进入面试优先名单。</h2>
+          <p>最值得先改的不是技术关键词，而是把项目里的个人行动和结果讲清楚。</p>
+          <div class="note-rule"></div>
+          <dl>
+            <div><dt>最先修改</dt><dd>用户调研</dd></div>
+            <div><dt>下一步</dt><dd>完成1次模拟面试</dd></div>
+            <div><dt>预计用时</dt><dd>20—30分钟</dd></div>
+          </dl>
+          <a href="#case-title">回到档案顶部</a>
+        </aside>
+      </main>
+
+      <footer>
+        <span>职引者 · HR评审桌原型</span>
+        <span>校园照片目前为占位背景，正式版需使用获得授权的图片</span>
+      </footer>
+    </div>
+
+    <script src="./hr-review-desk.js"></script>
+  </body>
+</html>

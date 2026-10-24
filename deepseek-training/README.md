@@ -4,7 +4,8 @@
 
 ## 当前文件
 
-- `prompts/job-match-v0.1.md`：岗位匹配分析提示词初稿。
+- `prompts/job-match-v0.3.md`：包含四级证据量表、详细匹配分析和程序评分标准的讨论定稿。
+- `prompts/job-match-v0.1.md`：岗位匹配分析提示词初稿，保留用于对比。
 - `test-cases.md`：测试案例和人工判断标准。
 - `CHANGELOG.md`：提示词修改记录。
 

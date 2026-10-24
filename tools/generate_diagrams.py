@@ -743,6 +743,101 @@ def complete_roadmap() -> None:
     save(fig, "07-MVP到决赛路线图")
 
 
+def tab_relationship() -> None:
+    fig, ax = canvas(
+        "求职档案标签关系",
+        "四个标签不是四张重复报告，而是围绕同一份岗位证据切换查看方式。",
+        "职引者 · HR评审桌UI结构 · 2026.10",
+    )
+
+    box(ax, 80, 640, 1440, 104, face=INK, edge=INK, radius=20)
+    text(ax, 120, 712, "固定摘要条", size=14, color="#9FC4F8", bold=True, ha="left")
+    summary = [
+        ("目标岗位", "AI产品实习生"),
+        ("匹配参考", "76 / 100"),
+        ("证据可靠度", "中"),
+        ("硬性门槛", "部分满足"),
+    ]
+    for i, (label, value) in enumerate(summary):
+        x = 310 + i * 295
+        text(ax, x, 716, label, size=11, color="#B8C9DD")
+        text(ax, x, 681, value, size=17, color=WHITE, bold=True)
+        if i:
+            ax.plot([x - 35, x - 35], [664, 720], color="#34536F", lw=1.4)
+
+    cards = [
+        (
+            80,
+            "01  诊断概览",
+            "先回答“值不值得投”",
+            ["匹配参考与等级", "分项表现", "置信度与材料边界"],
+            BLUE,
+            BLUE_LIGHT,
+        ),
+        (
+            440,
+            "02  证据核对",
+            "回答“为什么这样判断”",
+            ["岗位原文逐条拆解", "简历证据引用", "相关度 / 强度 / 深度"],
+            CYAN,
+            CYAN_LIGHT,
+        ),
+        (
+            800,
+            "03  差距检查",
+            "回答“还差什么”",
+            ["硬性门槛", "缺失证据", "面试官可能追问"],
+            ORANGE,
+            ORANGE_LIGHT,
+        ),
+        (
+            1160,
+            "04  修改处方",
+            "回答“下一步怎么改”",
+            ["按优先级排序", "需要补充的事实", "进入编辑或面试"],
+            GREEN,
+            GREEN_LIGHT,
+        ),
+    ]
+
+    for i, (x, title, subtitle, items, accent, face) in enumerate(cards):
+        box(ax, x, 330, 315, 235, face=face, edge=accent, lw=2)
+        pill(ax, x + 22, 514, 210, title, face=WHITE, color=accent)
+        text(ax, x + 157, 472, subtitle, size=14, color=INK, bold=True)
+        for j, item in enumerate(items):
+            yy = 422 - j * 38
+            ax.add_patch(plt.Circle((x + 35, yy), radius=4, facecolor=accent, edgecolor="none"))
+            text(ax, x + 52, yy, item, size=11.5, color=MUTED, ha="left")
+        if i < 3:
+            arrow(ax, x + 318, 448, x + 355, 448, color=accent, lw=3)
+
+    arrow(ax, 1317, 325, 1317, 272, color=GREEN, lw=3)
+    arrow(ax, 1317, 272, 237, 272, color=GREEN, lw=3, style="-")
+    arrow(ax, 237, 272, 237, 325, color=GREEN, lw=3)
+    box(ax, 420, 239, 725, 68, face=WHITE, edge="#DDE6F2", radius=16)
+    text(
+        ax,
+        782,
+        273,
+        "修改后再核对证据 → 更新诊断 → 调整面试追问",
+        size=14,
+        color=GREEN,
+        bold=True,
+    )
+
+    text(ax, 80, 160, "关系原则", size=12, color=INK, bold=True, ha="left")
+    text(
+        ax,
+        180,
+        160,
+        "顶部摘要始终可见；每次只展开一个标签；相同内容只在一个位置维护；修改后回到证据页重新检查。",
+        size=13,
+        color=MUTED,
+        ha="left",
+    )
+    save(fig, "08-求职档案标签关系")
+
+
 def main() -> None:
     user_flow()
     ai_pipeline()
@@ -751,6 +846,7 @@ def main() -> None:
     roles()
     evaluation_map()
     complete_roadmap()
+    tab_relationship()
     print(f"Generated diagrams in: {OUT_DIR}")
 
 
