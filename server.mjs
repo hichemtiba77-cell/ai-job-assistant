@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { loadLocalEnvironment } from "./env-loader.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)));
+const localEnvironment = loadLocalEnvironment(join(ROOT, ".env.local"));
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const API_KEY = process.env.DEEPSEEK_API_KEY || "";
@@ -404,6 +406,7 @@ export function createApplicationServer() {
     if (request.method === "GET" && request.url === "/api/status") {
       sendJson(response, 200, {
         configured: Boolean(API_KEY),
+        configSource: localEnvironment.loaded ? ".env.local" : "process environment",
         model: MODEL_DISPLAY_NAME,
         modelAlias: MODEL,
         baseUrl: BASE_URL,
@@ -435,6 +438,10 @@ if (isMain) {
   server.listen(PORT, HOST, () => {
     console.log(`职引者本地服务：http://${HOST}:${PORT}`);
     console.log(`模型：${MODEL_DISPLAY_NAME}（API别名：${MODEL}）`);
-    console.log(`API密钥：${API_KEY ? "已配置" : "未配置，将自动使用模拟结果"}`);
+    console.log(
+      `API密钥：${API_KEY ? "已配置" : "未配置，将自动使用模拟结果"}（${
+        localEnvironment.loaded ? ".env.local" : "进程环境变量"
+      }）`,
+    );
   });
 }

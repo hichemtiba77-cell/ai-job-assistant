@@ -1,3 +1,10 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadLocalEnvironment } from "../env-loader.mjs";
+
+const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+loadLocalEnvironment(resolve(projectRoot, ".env.local"));
+
 const apiKey = process.env.DEEPSEEK_API_KEY;
 const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(
   /\/+$/,
