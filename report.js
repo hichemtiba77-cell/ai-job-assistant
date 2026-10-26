@@ -67,11 +67,12 @@
     target.innerHTML = (dimensions || [])
       .map((item) => {
         const hasScore = Number.isFinite(item.score);
+        const unavailableLabel = item.assessed === false ? "未涉及" : "暂不评分";
         return `
           <div class="dimension-item${hasScore ? "" : " is-unknown"}">
             <div class="dimension-top">
               <strong>${escapeHtml(item.name)}</strong>
-              <span>${hasScore ? `${item.score} / 100` : "暂不评分"}</span>
+              <span>${hasScore ? `${item.score} / 100` : unavailableLabel}</span>
             </div>
             <div class="dimension-track" aria-hidden="true">
               <div class="dimension-fill" style="width: ${hasScore ? item.score : 0}%"></div>
@@ -166,11 +167,17 @@
         : "本地模拟结果";
     const sourceBadge = document.querySelector("#sourceBadge");
     sourceBadge.textContent =
-      meta.source === "deepseek" ? "DeepSeek分析结果" : "本地模拟结果";
+      meta.source === "deepseek"
+        ? meta.cached
+          ? "DeepSeek缓存结果"
+          : "DeepSeek分析结果"
+        : "本地模拟结果";
     sourceBadge.classList.toggle("is-ai", meta.source === "deepseek");
     sourceBadge.title =
       meta.source === "deepseek"
-        ? `模型：${meta.model || "deepseek-flash"}`
+        ? `模型：${meta.model || "deepseek-flash"}${
+            meta.usage?.total_tokens ? ` · 本次${meta.usage.total_tokens} tokens` : ""
+          }`
         : meta.fallbackReason || "当前使用本地模拟结果";
 
     const scoreRing = document.querySelector("#scoreRing");

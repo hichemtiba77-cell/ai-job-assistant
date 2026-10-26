@@ -60,6 +60,14 @@ http://127.0.0.1:3000
 
 `deepseek-flash`是DeepSeek官方API中的模型别名，目前由DeepSeek-V4.1-Flash-1017提供服务。不要在浏览器代码或公开仓库中填写真实密钥。
 
+查询当前账户余额：
+
+```powershell
+npm run check-balance
+```
+
+同一份简历和岗位内容在同一次服务运行期间会使用结果缓存。重复查看不会再次调用模型，也不会重复扣费。
+
 ## 目录说明
 
 ```text

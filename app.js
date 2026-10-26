@@ -77,7 +77,11 @@
 
       return {
         analysis: data.analysis,
-        meta: createMeta(resume, job, "deepseek", data.model || "deepseek-flash"),
+        meta: {
+          ...createMeta(resume, job, "deepseek", data.model || "deepseek-flash"),
+          cached: Boolean(data.cached),
+          usage: data.usage || null,
+        },
       };
     } finally {
       window.clearTimeout(timeout);

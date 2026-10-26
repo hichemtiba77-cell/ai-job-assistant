@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
@@ -15,6 +16,8 @@ const BASE_URL = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").r
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-flash";
 const MODEL_DISPLAY_NAME =
   process.env.DEEPSEEK_DISPLAY_NAME || "DeepSeek-V4.1-Flash-1017";
+const analysisCache = new Map();
+const MAX_CACHE_ENTRIES = 50;
 const PROMPT_PATH = join(
   ROOT,
   "deepseek-training",
@@ -102,7 +105,7 @@ async function callDeepSeek(resume, job) {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.2,
+        temperature: 0,
         max_tokens: 8000,
         response_format: { type: "json_object" },
         thinking: { type: "disabled" },
@@ -194,7 +197,17 @@ export function normalizeDeepSeekResult(raw) {
     });
   });
 
-  const dimensions = Array.from(grouped.entries()).map(([key, values]) => {
+  const dimensions = Object.entries(DIMENSIONS).map(([key, spec]) => {
+    const values = grouped.get(key) || [];
+    if (!values.length) {
+      return {
+        key,
+        name: spec.name,
+        score: null,
+        assessed: false,
+        detail: "本次岗位要求未涉及该维度，未纳入综合参考分。",
+      };
+    }
     const weightSum = values.reduce((sum, item) => sum + item.importance, 0);
     const score = clamp(
       values.reduce((sum, item) => sum + item.score * item.importance, 0) / weightSum,
@@ -202,21 +215,23 @@ export function normalizeDeepSeekResult(raw) {
     const evidenceCount = requirements.filter((item) => item.dimension === key).length;
     return {
       key,
-      name: DIMENSIONS[key].name,
+      name: spec.name,
       score,
+      assessed: true,
       detail: `该维度根据 ${evidenceCount} 条岗位要求计算，已找到的证据均来自简历原文。`,
     };
   });
 
-  const dimensionWeightSum = dimensions.reduce(
+  const assessedDimensions = dimensions.filter((item) => Number.isFinite(item.score));
+  const dimensionWeightSum = assessedDimensions.reduce(
     (sum, item) => sum + DIMENSIONS[item.key].weight,
     0,
   );
   const overall =
-    material.is_sufficient === false || !dimensions.length || dimensionWeightSum === 0
+    material.is_sufficient === false || !assessedDimensions.length || dimensionWeightSum === 0
       ? null
       : clamp(
-          dimensions.reduce(
+          assessedDimensions.reduce(
             (sum, item) => sum + item.score * DIMENSIONS[item.key].weight,
             0,
           ) / dimensionWeightSum,
@@ -305,13 +320,36 @@ async function handleAnalyze(request, response) {
       return;
     }
 
-    const { raw, usage } = await callDeepSeek(resume.trim(), job.trim());
+    const normalizedResume = resume.trim();
+    const normalizedJob = job.trim();
+    const cacheKey = createHash("sha256")
+      .update(`${MODEL}\n${normalizedResume}\n${normalizedJob}`)
+      .digest("hex");
+
+    if (analysisCache.has(cacheKey)) {
+      const cached = analysisCache.get(cacheKey);
+      sendJson(response, 200, {
+        analysis: cached.analysis,
+        model: MODEL_DISPLAY_NAME,
+        modelAlias: MODEL,
+        usage: cached.usage,
+        cached: true,
+      });
+      return;
+    }
+
+    const { raw, usage } = await callDeepSeek(normalizedResume, normalizedJob);
     const analysis = normalizeDeepSeekResult(raw);
+    if (analysisCache.size >= MAX_CACHE_ENTRIES) {
+      analysisCache.delete(analysisCache.keys().next().value);
+    }
+    analysisCache.set(cacheKey, { analysis, usage });
     sendJson(response, 200, {
       analysis,
       model: MODEL_DISPLAY_NAME,
       modelAlias: MODEL,
       usage,
+      cached: false,
     });
   } catch (error) {
     console.error("DeepSeek analysis failed:", error);
