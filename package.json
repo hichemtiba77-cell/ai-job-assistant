@@ -1,0 +1,11 @@
+{
+  "name": "zhiyin-job-assistant",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "校园求职诊断与面试训练原型",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env.local server.mjs",
+    "dev": "node --watch --env-file-if-exists=.env.local server.mjs"
+  }
+}

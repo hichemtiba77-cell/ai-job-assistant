@@ -30,9 +30,35 @@ GitHub仓库创建、邀请队友、分支和Pull Request规则见：
 
 ## 查看方式
 
-直接双击根目录中的 `index.html`，使用浏览器打开即可。
+### 本地模拟模式
 
-页面中的示例简历和岗位会自动填入，也可以点击“开始分析”查看模拟结果。
+直接双击根目录中的 `index.html`，使用浏览器打开即可。当前以文件方式打开时不会调用DeepSeek，只展示模拟结果。
+
+### 本地DeepSeek模式
+
+1. 将`.env.example`复制为`.env.local`。
+2. 在`.env.local`中填写真实的`DEEPSEEK_API_KEY`。
+3. 保持以下配置：
+
+```text
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-flash
+DEEPSEEK_DISPLAY_NAME=DeepSeek-V4.1-Flash-1017
+```
+
+4. 在项目目录运行：
+
+```powershell
+npm start
+```
+
+5. 打开：
+
+```text
+http://127.0.0.1:3000
+```
+
+`deepseek-flash`是DeepSeek官方API中的模型别名，目前由DeepSeek-V4.1-Flash-1017提供服务。不要在浏览器代码或公开仓库中填写真实密钥。
 
 ## 目录说明
 
@@ -40,6 +66,12 @@ GitHub仓库创建、邀请队友、分支和Pull Request规则见：
 index.html                 当前MVP页面
 styles.css                 页面样式
 app.js                     输入、模拟分析和结果渲染
+analysis-core.js           本地模拟分析逻辑
+report.html                独立求职诊断报告页
+report.css                 报告页样式
+report.js                  报告渲染和标签切换
+server.mjs                 本地后台、DeepSeek接口和静态文件服务
+package.json               本地启动命令和项目信息
 data/examples.js           示例简历与岗位
 deepseek-training/         提示词、测试案例和修改记录
 docs/                      竞品分析、PDF简历和虚拟形象方案

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="职引者求职诊断报告：查看岗位适配、证据核对、差距检查和修改建议。"
+    />
+    <title>求职诊断报告 · 职引者</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./report.css" />
+  </head>
+  <body class="report-page">
+    <div class="page-shell report-shell">
+      <header class="site-header report-nav">
+        <a class="brand" href="./index.html" aria-label="职引者首页">
+          <span class="brand-mark">职</span>
+          <span>
+            <strong>职引者</strong>
+            <small>校园求职诊断报告</small>
+          </span>
+        </a>
+        <div class="report-nav-actions">
+          <span class="source-badge" id="sourceBadge">载入中</span>
+          <a class="back-button" href="./index.html">返回修改材料</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="report-heading">
+          <div>
+            <span class="report-kicker">招聘官视角 · 求职诊断</span>
+            <h1 id="jobTitle">诊断报告</h1>
+            <p id="reportSubtitle">正在读取本次简历和岗位材料。</p>
+          </div>
+          <div class="report-stamp">
+            <span>评审结论</span>
+            <strong id="fitLevel">--</strong>
+          </div>
+        </section>
+
+        <section class="report-summary" aria-label="诊断摘要">
+          <article>
+            <span>岗位匹配参考</span>
+            <strong id="overallScore">--</strong>
+            <small id="scoreLabel">等待诊断</small>
+          </article>
+          <article>
+            <span>证据可靠度</span>
+            <strong id="evidenceReliability">--</strong>
+            <small id="confidenceLabel">置信度：--</small>
+          </article>
+          <article>
+            <span>硬性门槛</span>
+            <strong id="hardGateLabel">--</strong>
+            <small id="hardGateDetail">待检查</small>
+          </article>
+          <p id="summaryText"></p>
+        </section>
+
+        <div class="diagnosis-notice" id="diagnosisNotice" role="status" hidden></div>
+
+        <nav class="report-tabs" role="tablist" aria-label="求职诊断内容">
+          <button
+            class="report-tab is-active"
+            id="tab-diagnosis"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="panel-diagnosis"
+            data-tab="diagnosis"
+          >
+            <span>01</span>
+            诊断概览
+          </button>
+          <button
+            class="report-tab"
+            id="tab-evidence"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-evidence"
+            data-tab="evidence"
+            tabindex="-1"
+          >
+            <span>02</span>
+            证据核对
+          </button>
+          <button
+            class="report-tab"
+            id="tab-gaps"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-gaps"
+            data-tab="gaps"
+            tabindex="-1"
+          >
+            <span>03</span>
+            差距检查
+          </button>
+          <button
+            class="report-tab"
+            id="tab-actions"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-actions"
+            data-tab="actions"
+            tabindex="-1"
+          >
+            <span>04</span>
+            修改建议
+          </button>
+        </nav>
+
+        <div class="report-paper" id="reportPaper">
+          <section
+            class="report-panel is-active"
+            id="panel-diagnosis"
+            role="tabpanel"
+            aria-labelledby="tab-diagnosis"
+            data-panel="diagnosis"
+          >
+            <div class="report-panel-heading">
+              <div>
+                <span>招聘官会怎么判断</span>
+                <h2>先看岗位最在意什么</h2>
+              </div>
+              <small id="reportTime"></small>
+            </div>
+            <div class="diagnosis-layout">
+              <article class="report-score-card">
+                <div class="score-ring" id="scoreRing">
+                  <div>
+                    <strong id="scoreValue">--</strong>
+                    <span id="scoreDenominator">暂不评分</span>
+                  </div>
+                </div>
+                <p id="scoreExplanation"></p>
+              </article>
+              <div class="dimension-grid" id="dimensionGrid"></div>
+            </div>
+          </section>
+
+          <section
+            class="report-panel"
+            id="panel-evidence"
+            role="tabpanel"
+            aria-labelledby="tab-evidence"
+            data-panel="evidence"
+            hidden
+          >
+            <div class="report-panel-heading">
+              <div>
+                <span>岗位要求与简历原文</span>
+                <h2>招聘官认可哪些证据</h2>
+              </div>
+              <small>“未找到”不等于“不具备”</small>
+            </div>
+            <div class="report-evidence-list" id="evidenceList"></div>
+          </section>
+
+          <section
+            class="report-panel"
+            id="panel-gaps"
+            role="tabpanel"
+            aria-labelledby="tab-gaps"
+            data-panel="gaps"
+            hidden
+          >
+            <div class="report-panel-heading">
+              <div>
+                <span>门槛与风险</span>
+                <h2>还差什么，面试官会追问什么</h2>
+              </div>
+              <small>硬性条件不被综合分掩盖</small>
+            </div>
+            <div class="report-gap-layout">
+              <div class="constraint-list" id="constraintList"></div>
+              <ul class="report-gap-list" id="gapList"></ul>
+            </div>
+          </section>
+
+          <section
+            class="report-panel"
+            id="panel-actions"
+            role="tabpanel"
+            aria-labelledby="tab-actions"
+            data-panel="actions"
+            hidden
+          >
+            <div class="report-panel-heading">
+              <div>
+                <span>投递前行动</span>
+                <h2>优先修改这些内容</h2>
+              </div>
+              <small>只优化真实经历，不编造成果</small>
+            </div>
+            <ol class="suggestion-list" id="suggestionList"></ol>
+            <div class="report-next">
+              <div>
+                <strong>下一步</strong>
+                <p>完成修改后重新诊断，再根据岗位差距进入模拟面试。</p>
+              </div>
+              <a href="./index.html">返回材料页继续修改</a>
+            </div>
+          </section>
+        </div>
+
+        <section class="report-empty" id="reportEmpty" hidden>
+          <span>未找到诊断结果</span>
+          <h1>先生成一份求职诊断</h1>
+          <p>返回材料页填写简历和目标岗位，点击“生成求职诊断报告”。</p>
+          <a href="./index.html">返回材料页</a>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>职引者 · 郑州大学首届AI智能体创新应用大赛</span>
+        <span id="modelLabel">本地演示</span>
+      </footer>
+    </div>
+
+    <script src="./report.js"></script>
+  </body>
+</html>
