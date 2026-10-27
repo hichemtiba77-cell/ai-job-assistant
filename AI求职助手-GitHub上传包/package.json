@@ -1,0 +1,12 @@
+{
+  "name": "zhiyin-job-assistant",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "校园求职诊断与面试训练原型",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "check-balance": "node tools/check_deepseek_balance.mjs"
+  }
+}

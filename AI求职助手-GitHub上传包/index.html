@@ -133,104 +133,19 @@
 
         <section class="action-panel" aria-label="开始分析">
           <div class="mode-note">
-            <span class="mode-badge">本地模拟</span>
+            <span class="mode-badge">AI诊断</span>
             <div>
-              <strong>先验证求职诊断结构，不发送任何内容</strong>
-              <p>评分和修改建议仅用于确认页面，正式AI规则仍在校准。</p>
+              <strong>通过本地后台调用DeepSeek</strong>
+              <p>未配置API密钥或接口异常时，会自动使用模拟结果保证页面可演示。</p>
             </div>
           </div>
           <button class="primary-button" id="analyzeButton" type="button">
-            <span class="button-label">诊断简历匹配度</span>
+            <span class="button-label">生成求职诊断报告</span>
             <span class="button-arrow" aria-hidden="true">→</span>
           </button>
         </section>
 
         <p class="form-message" id="formMessage" role="alert" aria-live="polite"></p>
-
-        <section class="results" id="results" aria-labelledby="resultsTitle" hidden>
-          <div class="results-heading">
-            <div>
-              <span class="section-kicker">招聘官视角 · 求职诊断</span>
-              <h2 id="resultsTitle">投递前诊断</h2>
-            </div>
-            <span class="mock-label">结构演示 · 评分规则待校准</span>
-          </div>
-
-          <div class="diagnosis-notice" id="diagnosisNotice" role="status" hidden></div>
-
-          <div class="score-panel">
-            <div class="score-ring" id="scoreRing" aria-label="岗位适配总分">
-              <div>
-                <strong id="overallScore">--</strong>
-                <span id="scoreDenominator">/ 100</span>
-              </div>
-            </div>
-            <div class="score-summary">
-              <div class="score-tags">
-                <span id="fitLevel">等待诊断</span>
-                <span id="confidenceLevel">置信度：--</span>
-              </div>
-              <h3 id="summaryTitle">招聘官会怎么判断</h3>
-              <p id="summaryText"></p>
-            </div>
-          </div>
-
-          <div class="result-block">
-            <div class="block-heading">
-              <h3>招聘官关注的分项证据</h3>
-              <span>分数与证据覆盖直接相关</span>
-            </div>
-            <div class="dimension-grid" id="dimensionGrid"></div>
-          </div>
-
-          <div class="two-column-results">
-            <article class="result-card evidence-card">
-              <div class="result-card-heading">
-                <span class="result-icon">证</span>
-                <div>
-                  <h3>招聘官会认可的证据</h3>
-                  <p>真实分析会引用简历原文，不做无依据夸奖。</p>
-                </div>
-              </div>
-              <ul class="evidence-list" id="evidenceList"></ul>
-            </article>
-
-            <article class="result-card gap-card">
-              <div class="result-card-heading">
-                <span class="result-icon">差</span>
-                <div>
-                  <h3>招聘官可能继续追问的差距</h3>
-                  <p>“未找到”不等于“不具备”，需要你补充真实材料。</p>
-                </div>
-              </div>
-              <ul class="gap-list" id="gapList"></ul>
-            </article>
-          </div>
-
-          <div class="result-block">
-            <div class="block-heading">
-              <h3>硬性门槛检查</h3>
-              <span>学历、到岗等条件不能藏在总分里</span>
-            </div>
-            <div class="constraint-list" id="constraintList"></div>
-          </div>
-
-          <div class="result-block suggestion-block">
-            <div class="block-heading">
-              <h3>投递前优先修改</h3>
-              <span>只优化真实经历，不为关键词编造内容</span>
-            </div>
-            <ol class="suggestion-list" id="suggestionList"></ol>
-          </div>
-
-          <div class="next-step-note">
-            <div>
-              <strong>下一阶段：先完善MVP，再接入DeepSeek</strong>
-              <p>当前先校准评分、页面结构和求职主题，后续再验证AI提示词。</p>
-            </div>
-            <a href="./deepseek-training/prompts/job-match-v0.1.md">查看评分与提示词规则</a>
-          </div>
-        </section>
       </main>
 
       <footer class="site-footer">
@@ -240,6 +155,7 @@
     </div>
 
     <script src="./data/examples.js"></script>
+    <script src="./analysis-core.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
