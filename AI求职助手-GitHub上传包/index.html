@@ -11,69 +11,109 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="site-header">
-        <a class="brand" href="./index.html" aria-label="AI求职助手首页">
-          <span class="brand-mark">职</span>
-          <span>
-            <strong>AI求职助手</strong>
-            <small>岗位匹配与求职训练</small>
-          </span>
-        </a>
-        <div class="header-meta">
-          <span class="status-dot" aria-hidden="true"></span>
-          校园招聘 · 本地演示
-        </div>
-      </header>
+    <div class="hero-zone">
+      <div class="page-shell">
+        <header class="site-header">
+          <a class="brand" href="./index.html" aria-label="AI求职助手首页">
+            <span class="brand-mark">职</span>
+            <span>
+              <strong>AI求职助手</strong>
+              <small>岗位匹配与求职训练</small>
+            </span>
+          </a>
+          <div class="header-meta">
+            <span class="status-dot" aria-hidden="true"></span>
+            校园招聘 · 本地演示
+          </div>
+        </header>
 
-      <main>
         <section class="hero" aria-labelledby="page-title">
           <div class="hero-main">
             <div class="eyebrow">AI求职助手 · 校园招聘与实习</div>
-            <h1 id="page-title">别海投。先看清这份岗位适不适合你。</h1>
+            <h1 id="page-title">
+              别海投。先看清这份岗位<span class="grad-text">适不适合你。</span>
+            </h1>
             <p class="hero-copy">
               粘贴简历和目标岗位，像招聘官一样逐条对照：哪条有证据、哪条是差距、
               投递前先改什么。信息不足时，我们不会强行给高分。
             </p>
             <div class="hero-meta">
-              <span>✓ 每条结论对应简历证据</span>
-              <span>✓ 不编造实习和项目经历</span>
-              <span>✓ 材料不足时提示补充</span>
+              <span><i>✓</i> 每条结论对应简历证据</span>
+              <span><i>✓</i> 不编造实习和项目经历</span>
+              <span><i>✓</i> 材料不足时提示补充</span>
             </div>
+            <a class="hero-cta" href="#workspace">
+              开始一次诊断
+              <span aria-hidden="true">↓</span>
+            </a>
           </div>
+
           <aside class="hero-preview" aria-label="求职诊断示例">
-            <div class="preview-heading">
-              <span>求职诊断</span>
-              <strong>先证据，后分数</strong>
+            <div class="preview-top">
+              <span class="preview-logo">职</span>
+              <span class="preview-app">AI求职助手</span>
+              <span class="preview-live"><i></i>诊断中</span>
             </div>
-            <div class="preview-job">
-              <span>目标岗位</span>
-              <strong>AI产品实习生</strong>
-              <div>
-                <em>用户调研</em>
-                <em>数据分析</em>
-                <em>项目经历</em>
+            <div class="preview-score">
+              <div class="mini-ring">
+                <div><strong>76</strong><span>/ 100</span></div>
+              </div>
+              <div class="preview-score-txt">
+                <span>岗位匹配参考</span>
+                <strong>部分匹配</strong>
+                <small>先证据，后分数</small>
               </div>
             </div>
-            <div class="preview-checks">
-              <div><strong>4</strong><span>岗位要求</span></div>
-              <div><strong>3</strong><span>证据检查</span></div>
-              <div><strong>2</strong><span>优先修改</span></div>
+            <div class="preview-bars">
+              <div>
+                <span>核心技能</span><b>60</b>
+                <i><em style="width: 60%"></em></i>
+              </div>
+              <div>
+                <span>项目与经历</span><b>83</b>
+                <i><em style="width: 83%"></em></i>
+              </div>
+              <div>
+                <span>教育相关</span><b>90</b>
+                <i><em style="width: 90%"></em></i>
+              </div>
             </div>
-            <p>材料不足时暂不评分，先告诉你缺什么。</p>
+            <div class="preview-tags">
+              <em>用户调研</em>
+              <em>数据分析</em>
+              <em>项目经历</em>
+            </div>
+            <p class="preview-note">材料不足时暂不评分，先告诉你缺什么。</p>
           </aside>
         </section>
+      </div>
+    </div>
 
+    <div class="page-shell">
+      <main>
         <ol class="journey-steps" aria-label="求职诊断流程">
-          <li><span>01</span><strong>粘贴简历</strong><small>放入真实经历</small></li>
-          <li><span>02</span><strong>添加岗位</strong><small>明确招聘要求</small></li>
-          <li><span>03</span><strong>查看诊断</strong><small>找到证据与差距</small></li>
-          <li><span>04</span><strong>准备下一步</strong><small>修改简历与面试</small></li>
+          <li>
+            <span>01</span>
+            <div><strong>粘贴简历</strong><small>放入真实经历</small></div>
+          </li>
+          <li>
+            <span>02</span>
+            <div><strong>添加岗位</strong><small>明确招聘要求</small></div>
+          </li>
+          <li>
+            <span>03</span>
+            <div><strong>查看诊断</strong><small>找到证据与差距</small></div>
+          </li>
+          <li>
+            <span>04</span>
+            <div><strong>准备下一步</strong><small>修改简历与面试</small></div>
+          </li>
         </ol>
 
-        <div class="workspace-heading">
+        <div class="workspace-heading" id="workspace">
           <span>开始一次求职诊断</span>
           <h2>先看目标岗位，再改自己的简历</h2>
+          <p>把简历和岗位要求粘贴进来，剩下的交给招聘官视角的逐条核对。</p>
         </div>
 
         <section class="input-grid" aria-label="求职材料输入">
@@ -85,6 +125,7 @@
                 <p>先放入真实的教育、项目、实习和技能信息。</p>
               </div>
             </div>
+            <div class="card-hint"><i>✦</i>建议粘贴 300–800 字真实经历，含项目、实习与技能</div>
             <label class="sr-only" for="resumeText">简历文字</label>
             <textarea
               id="resumeText"
@@ -112,6 +153,7 @@
                 <p>粘贴企业公开岗位或校园招聘要求，系统会逐条寻找证据。</p>
               </div>
             </div>
+            <div class="card-hint"><i>✦</i>粘贴完整 JD：职责、任职要求与优先条件越全越好</div>
             <label class="sr-only" for="jobText">岗位招聘要求</label>
             <textarea
               id="jobText"
