@@ -12,11 +12,45 @@
   </head>
   <body>
     <div class="campus-mask" aria-hidden="true">
-      <img
-        class="campus-photo"
-        src="./assets/images/Modern_flat_vector_illustratio_2026-11-02T05-19-26.png"
-        alt=""
-      />
+      <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#081b2e" />
+            <stop offset="1" stop-color="#12324a" />
+          </linearGradient>
+          <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#17384d" />
+            <stop offset="1" stop-color="#091b29" />
+          </linearGradient>
+        </defs>
+        <rect width="1600" height="900" fill="url(#sky)" />
+        <circle cx="1270" cy="180" r="78" fill="#dbeafe" opacity=".12" />
+        <circle cx="1270" cy="180" r="42" fill="#eff6ff" opacity=".12" />
+        <path
+          d="M0 590 C210 545 380 555 560 610 C760 670 910 650 1100 600 C1300 545 1470 555 1600 600 L1600 900 L0 900 Z"
+          fill="url(#ground)"
+        />
+        <g fill="none" stroke="#b7d8e8" stroke-width="5" opacity=".18">
+          <path d="M80 590V282h310v308M390 590V236h430v354M820 590V310h350v280M1170 590V260h340v330" />
+          <path d="M90 330h290M390 300h430M830 350h330M1180 320h320" />
+          <path d="M90 390h290M390 360h430M830 410h330M1180 380h320" />
+          <path d="M90 450h290M390 420h430M830 470h330M1180 440h320" />
+          <path d="M180 282v308M300 282v308M500 236v354M700 236v354M900 310v280M1080 310v280M1250 260v330M1420 260v330" />
+        </g>
+        <g fill="#d9f1ff" opacity=".24">
+          <rect x="116" y="342" width="26" height="38" />
+          <rect x="196" y="342" width="26" height="38" />
+          <rect x="276" y="402" width="26" height="38" />
+          <rect x="446" y="312" width="30" height="42" />
+          <rect x="566" y="312" width="30" height="42" />
+          <rect x="686" y="372" width="30" height="42" />
+          <rect x="886" y="362" width="26" height="36" />
+          <rect x="1016" y="422" width="26" height="36" />
+          <rect x="1246" y="332" width="28" height="40" />
+          <rect x="1376" y="392" width="28" height="40" />
+        </g>
+        <path d="M0 705 C300 675 480 720 730 705 C980 690 1200 665 1600 710" fill="none" stroke="#bfe8d8" stroke-width="3" opacity=".16" />
+      </svg>
       <!-- 正式版可在同一位置替换为获得授权的郑州大学校园照片。 -->
     </div>
 
@@ -119,10 +153,8 @@
               <div class="diagnosis-grid">
                 <article class="score-board">
                   <span>岗位匹配参考</span>
-                  <div class="score-gauge">
-                    <div><strong>76</strong><small>/ 100</small></div>
-                  </div>
-                  <em class="score-sub">部分匹配 · 置信度中等</em>
+                  <strong>76</strong>
+                  <small>部分匹配 · 置信度中等</small>
                   <p>技能和项目证据较好，到岗条件与调研细节仍是主要不确定项。</p>
                 </article>
                 <div class="dimension-board">
