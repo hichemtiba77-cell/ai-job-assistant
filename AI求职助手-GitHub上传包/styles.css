@@ -41,6 +41,7 @@ body {
 }
 
 button,
+input,
 textarea {
   font: inherit;
 }
@@ -52,7 +53,13 @@ a {
 
 button:focus-visible,
 a:focus-visible,
+input:focus-visible,
 textarea:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 3px;
+}
+
+#resumePdf:focus-visible + .pdf-dropzone {
   outline: 3px solid rgba(37, 99, 235, 0.28);
   outline-offset: 3px;
 }
@@ -479,6 +486,184 @@ textarea:focus {
   font-weight: 800;
 }
 
+.pdf-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 96px;
+  padding: 16px;
+  border: 1.5px dashed #b7c9e5;
+  border-radius: 16px;
+  color: var(--ink);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.07), transparent 58%),
+    #fbfdff;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.pdf-dropzone:hover,
+.pdf-dropzone.is-dragging {
+  border-color: var(--blue);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.12), transparent 62%),
+    #fff;
+  transform: translateY(-1px);
+}
+
+.pdf-dropzone.is-busy {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.pdf-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 62px;
+  place-items: center;
+  border-radius: 9px 9px 9px 3px;
+  color: #fff;
+  background: linear-gradient(150deg, #2f6fed, #1849b5);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  box-shadow: 0 9px 22px rgba(37, 99, 235, 0.24);
+}
+
+.pdf-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.pdf-copy strong {
+  font-size: 15px;
+}
+
+.pdf-copy span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pdf-action {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 7px 12px;
+  border-radius: 9px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pdf-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #b9ead9;
+  border-radius: 14px;
+  background: var(--green-soft);
+}
+
+.pdf-file-card[hidden],
+.pdf-dropzone[hidden] {
+  display: none;
+}
+
+.pdf-file-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--green);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.pdf-file-card > div:not(.pdf-file-actions) {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.pdf-file-card strong,
+.pdf-file-card span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-file-card strong {
+  font-size: 13px;
+}
+
+.pdf-file-card > div > span {
+  color: #477467;
+  font-size: 11px;
+}
+
+.pdf-file-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.pdf-remove-button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: #8b3a25;
+  background: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resume-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 17px 0 12px;
+  color: #98a2b3;
+  font-size: 10px;
+}
+
+.resume-divider::before,
+.resume-divider::after {
+  height: 1px;
+  flex: 1;
+  background: #e7ecf3;
+  content: "";
+}
+
+.input-card.has-pdf .resume-divider,
+.input-card.has-pdf textarea,
+.input-card.has-pdf .input-footer {
+  display: none;
+}
+
+.input-card.has-pdf .pdf-file-card {
+  margin-top: 12px;
+}
+
+.input-card.has-pdf textarea {
+  min-height: 0;
+}
+
+.pdf-privacy-note {
+  margin-top: auto;
+}
+
 .action-panel {
   display: flex;
   align-items: center;
@@ -566,6 +751,14 @@ textarea:focus {
   margin: 12px 4px 0;
   color: var(--red);
   font-size: 13px;
+}
+
+.form-message.is-info {
+  color: var(--muted);
+}
+
+.form-message.is-success {
+  color: var(--green);
 }
 
 .results {
@@ -1132,6 +1325,26 @@ textarea:focus {
   .mode-note p,
   .future-note {
     overflow-wrap: anywhere;
+  }
+
+  .pdf-dropzone {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .pdf-action {
+    margin-left: 66px;
+  }
+
+  .pdf-file-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .pdf-file-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 
   .primary-button {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="AI求职助手MVP：输入简历文字和岗位要求，查看岗位适配分析演示。"
+      content="AI求职助手MVP：上传PDF简历并输入岗位要求，查看岗位适配诊断。"
     />
     <title>AI求职助手 · MVP</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -22,7 +22,7 @@
         </a>
         <div class="header-meta">
           <span class="status-dot" aria-hidden="true"></span>
-          校园招聘 · 本地演示
+          校园招聘 · PDF测试版
         </div>
       </header>
 
@@ -32,7 +32,7 @@
             <div class="eyebrow">AI求职助手 · 校园招聘与实习</div>
             <h1 id="page-title">别海投。先看清这份岗位适不适合你。</h1>
             <p class="hero-copy">
-              粘贴简历和目标岗位，像招聘官一样逐条对照：哪条有证据、哪条是差距、
+              上传简历、填写目标岗位，像招聘官一样逐条对照：哪条有证据、哪条是差距、
               投递前先改什么。信息不足时，我们不会强行给高分。
             </p>
             <div class="hero-meta">
@@ -65,7 +65,7 @@
         </section>
 
         <ol class="journey-steps" aria-label="求职诊断流程">
-          <li><span>01</span><strong>粘贴简历</strong><small>放入真实经历</small></li>
+          <li><span>01</span><strong>上传简历</strong><small>选择PDF文件</small></li>
           <li><span>02</span><strong>添加岗位</strong><small>明确招聘要求</small></li>
           <li><span>03</span><strong>查看诊断</strong><small>找到证据与差距</small></li>
           <li><span>04</span><strong>准备下一步</strong><small>修改简历与面试</small></li>
@@ -82,9 +82,44 @@
               <span class="step-number">01</span>
               <div>
                 <h2>简历材料</h2>
-                <p>先放入真实的教育、项目、实习和技能信息。</p>
+                <p>上传你的PDF简历，我们会结合真实经历完成诊断。</p>
               </div>
             </div>
+            <input
+              class="sr-only"
+              id="resumePdf"
+              type="file"
+              accept="application/pdf,.pdf"
+            />
+            <label class="pdf-dropzone" id="pdfDropzone" for="resumePdf">
+              <span class="pdf-mark" aria-hidden="true">PDF</span>
+              <span class="pdf-copy">
+                <strong>上传 PDF 简历</strong>
+                <span>点击选择，或将文件拖到这里</span>
+              </span>
+              <span class="pdf-action">选择文件</span>
+            </label>
+            <div class="pdf-file-card" id="pdfFileCard" hidden>
+              <span class="pdf-file-icon" aria-hidden="true">✓</span>
+              <div>
+                <strong id="pdfFileName">简历已就绪</strong>
+                <span id="pdfFileMeta" aria-live="polite">可直接生成求职诊断</span>
+              </div>
+              <div class="pdf-file-actions">
+                <button class="text-button" id="usePasteButton" type="button">
+                  改为粘贴
+                </button>
+                <button
+                  class="pdf-remove-button"
+                  id="removePdfButton"
+                  type="button"
+                  aria-label="移除已上传的PDF简历"
+                >
+                  移除
+                </button>
+              </div>
+            </div>
+            <div class="resume-divider"><span>也可以直接粘贴简历文字</span></div>
             <label class="sr-only" for="resumeText">简历文字</label>
             <textarea
               id="resumeText"
@@ -98,9 +133,9 @@
                 加载示例简历
               </button>
             </div>
-            <div class="future-note">
-              <span>PDF</span>
-              下一阶段先提取文字并让你确认，再进入同一求职诊断流程。
+            <div class="future-note pdf-privacy-note">
+              <span>仅本机</span>
+              简历文件在当前浏览器中处理，不会上传到文件存储服务。
             </div>
           </article>
 
@@ -135,8 +170,8 @@
           <div class="mode-note">
             <span class="mode-badge">AI诊断</span>
             <div>
-              <strong>通过本地后台调用DeepSeek</strong>
-              <p>未配置API密钥或接口异常时，会自动使用模拟结果保证页面可演示。</p>
+              <strong id="modeTitle">DeepSeek AI 求职诊断</strong>
+              <p id="modeDescription">上传简历并填写目标岗位，即可生成分析结果。</p>
             </div>
           </div>
           <button class="primary-button" id="analyzeButton" type="button">
@@ -154,6 +189,12 @@
       </footer>
     </div>
 
+    <script src="./config.local.js"></script>
+    <script src="./config.example.js"></script>
+    <script src="./vendor/pdfjs/pdf.min.js"></script>
+    <script src="./pdf-extractor.js"></script>
+    <script src="./scoring-core.js"></script>
+    <script src="./browser-api.js"></script>
     <script src="./data/examples.js"></script>
     <script src="./analysis-core.js"></script>
     <script src="./app.js"></script>

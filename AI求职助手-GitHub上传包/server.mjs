@@ -5,8 +5,10 @@ import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadLocalEnvironment } from "./env-loader.mjs";
+import "./scoring-core.js";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)));
+const SCORING = globalThis.AIJobAssistantScoring;
 const localEnvironment = loadLocalEnvironment(join(ROOT, ".env.local"));
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -19,24 +21,8 @@ const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-flash";
 const MODEL_DISPLAY_NAME =
   process.env.DEEPSEEK_DISPLAY_NAME || "DeepSeek-V4.1-Flash-1017";
 const analysisCache = new Map();
+const jobRubricCache = new Map();
 const MAX_CACHE_ENTRIES = 50;
-const PROMPT_PATH = join(
-  ROOT,
-  "deepseek-training",
-  "prompts",
-  "job-match-v0.3.md",
-);
-
-const DIMENSIONS = {
-  core_skills: { name: "核心专业技能", weight: 0.25 },
-  domain_knowledge: { name: "行业与岗位知识", weight: 0.1 },
-  experience: { name: "项目与实习证据", weight: 0.2 },
-  complexity: { name: "任务复杂度与独立程度", weight: 0.1 },
-  education: { name: "教育、专业与证书", weight: 0.1 },
-  behavior: { name: "沟通与协作行为", weight: 0.1 },
-  conditions: { name: "到岗、语言与其他条件", weight: 0.1 },
-  expression: { name: "简历表达完整度", weight: 0.05 },
-};
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -53,19 +39,6 @@ const MIME_TYPES = {
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 };
-
-function clamp(value, min = 0, max = 100) {
-  return Math.max(min, Math.min(max, Math.round(value)));
-}
-
-async function loadSystemPrompt() {
-  const markdown = await readFile(PROMPT_PATH, "utf8");
-  const match = markdown.match(/```text\s*\n([\s\S]*?)\n```/);
-  if (!match) {
-    throw new Error("无法从job-match-v0.3.md中读取系统提示词");
-  }
-  return match[1].trim();
-}
 
 function getJsonBody(request, limit = 250_000) {
   return new Promise((resolvePromise, reject) => {
@@ -89,10 +62,31 @@ function getJsonBody(request, limit = 250_000) {
   });
 }
 
-async function callDeepSeek(resume, job) {
-  const systemPrompt = await loadSystemPrompt();
-  const userPrompt = `请分析以下材料。\n\n【简历】\n${resume}\n\n【岗位招聘要求】\n${job}\n\n请严格依据系统规则输出JSON，不得补充输入中不存在的事实。`;
-  const emptyResponses = [];
+function parseJsonContent(content) {
+  const cleaned = String(content || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  const candidate =
+    start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+  return JSON.parse(candidate);
+}
+
+function mergeUsage(target, usage) {
+  if (!usage) return target;
+  return {
+    prompt_tokens:
+      (target?.prompt_tokens || 0) + (usage.prompt_tokens || 0),
+    completion_tokens:
+      (target?.completion_tokens || 0) + (usage.completion_tokens || 0),
+    total_tokens: (target?.total_tokens || 0) + (usage.total_tokens || 0),
+  };
+}
+
+async function callDeepSeekJson(systemPrompt, userPrompt, maxTokens) {
+  const failures = [];
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await fetch(`${BASE_URL}/chat/completions`, {
@@ -108,7 +102,7 @@ async function callDeepSeek(resume, job) {
           { role: "user", content: userPrompt },
         ],
         temperature: 0,
-        max_tokens: 8000,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         thinking: { type: "disabled" },
         stream: false,
@@ -117,182 +111,83 @@ async function callDeepSeek(resume, job) {
 
     if (!response.ok) {
       const detail = await response.text();
-      throw new Error(`DeepSeek接口失败（${response.status}）：${detail.slice(0, 240)}`);
+      throw new Error(
+        `DeepSeek接口失败（${response.status}）：${detail.slice(0, 240)}`,
+      );
     }
 
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content;
-    if (content?.trim()) {
+    if (!content?.trim()) {
+      failures.push(
+        `空内容 ${data?.choices?.[0]?.finish_reason || "unknown"}`,
+      );
+      continue;
+    }
+
+    try {
       return {
-        raw: JSON.parse(content),
+        raw: parseJsonContent(content),
         usage: data.usage || null,
       };
+    } catch {
+      failures.push(
+        `JSON格式错误 ${data?.choices?.[0]?.finish_reason || "unknown"}`,
+      );
     }
-    emptyResponses.push(
-      `${data?.choices?.[0]?.finish_reason || "unknown"} / ${data?.usage?.completion_tokens || 0} tokens`,
-    );
   }
 
-  throw new Error(`DeepSeek连续两次返回空内容（${emptyResponses.join("；")}）`);
+  throw new Error(`DeepSeek连续两次未返回可用JSON（${failures.join("；")}）`);
 }
 
-function statusFromRequirement(requirement) {
-  const relevance = Number(requirement.relevance_level);
-  const evidence = Number(requirement.evidence_level);
-  if (relevance >= 3 && evidence >= 2) {
-    return { status: "direct", statusLabel: "有直接证据" };
-  }
-  if (relevance >= 2 && evidence <= 1) {
-    return { status: "partial", statusLabel: "表达缺口" };
-  }
-  return { status: "unknown", statusLabel: "证据不足" };
-}
-
-function requirementScore(requirement) {
-  const relevance = Number(requirement.relevance_level);
-  const evidence = Number(requirement.evidence_level);
-  const depth = Number(requirement.depth_level);
-  const recency = requirement.recency_level;
-
-  const parts = [];
-  if (Number.isFinite(relevance)) parts.push([clamp((relevance / 4) * 100), 0.4]);
-  if (Number.isFinite(evidence)) parts.push([clamp((evidence / 4) * 100), 0.35]);
-  if (Number.isFinite(depth)) parts.push([clamp((depth / 4) * 100), 0.15]);
-  if (recency !== null && Number.isFinite(Number(recency))) {
-    parts.push([clamp((Number(recency) / 3) * 100), 0.1]);
-  }
-
-  if (!parts.length) return null;
-  const totalWeight = parts.reduce((sum, [, weight]) => sum + weight, 0);
-  return clamp(
-    parts.reduce((sum, [score, weight]) => sum + score * weight, 0) / totalWeight,
-  );
-}
-
-export function normalizeDeepSeekResult(raw) {
-  const material = raw?.material_sufficiency || {};
-  const requirements = Array.isArray(raw?.requirements) ? raw.requirements : [];
-  const hardConditions = Array.isArray(raw?.hard_conditions) ? raw.hard_conditions : [];
-
-  const grouped = new Map();
-  const evidenceItems = [];
-
-  requirements.forEach((requirement) => {
-    const dimension = DIMENSIONS[requirement.dimension] ? requirement.dimension : "core_skills";
-    const score = requirementScore(requirement);
-    const importance = requirement.importance === "bonus" ? 0.5 : 1;
-    if (score !== null) {
-      if (!grouped.has(dimension)) grouped.set(dimension, []);
-      grouped.get(dimension).push({ score, importance });
-    }
-
-    const status = statusFromRequirement(requirement);
-    evidenceItems.push({
-      ...status,
-      label: requirement.label || "岗位要求",
-      jobEvidence: requirement.jd_evidence || "",
-      resumeEvidence: requirement.resume_evidence || "简历中未找到",
-      relevanceLevel: Number(requirement.relevance_level),
-      evidenceLevel: Number(requirement.evidence_level),
-      depthLevel: Number(requirement.depth_level),
-      explanation: requirement.explanation || "",
-    });
-  });
-
-  const dimensions = Object.entries(DIMENSIONS).map(([key, spec]) => {
-    const values = grouped.get(key) || [];
-    if (!values.length) {
-      return {
-        key,
-        name: spec.name,
-        score: null,
-        assessed: false,
-        detail: "本次岗位要求未涉及该维度，未纳入综合参考分。",
-      };
-    }
-    const weightSum = values.reduce((sum, item) => sum + item.importance, 0);
-    const score = clamp(
-      values.reduce((sum, item) => sum + item.score * item.importance, 0) / weightSum,
-    );
-    const evidenceCount = requirements.filter((item) => item.dimension === key).length;
+async function getJobRubric(job) {
+  const key = createHash("sha256")
+    .update(
+      `${SCORING.PROTOCOL_VERSION}\n${MODEL}\n${SCORING.canonicalizeText(job)}`,
+    )
+    .digest("hex");
+  if (jobRubricCache.has(key)) {
     return {
-      key,
-      name: spec.name,
-      score,
-      assessed: true,
-      detail: `该维度根据 ${evidenceCount} 条岗位要求计算，已找到的证据均来自简历原文。`,
+      rubric: jobRubricCache.get(key).rubric,
+      usage: null,
+      cached: true,
     };
-  });
-
-  const assessedDimensions = dimensions.filter((item) => Number.isFinite(item.score));
-  const dimensionWeightSum = assessedDimensions.reduce(
-    (sum, item) => sum + DIMENSIONS[item.key].weight,
-    0,
-  );
-  const overall =
-    material.is_sufficient === false || !assessedDimensions.length || dimensionWeightSum === 0
-      ? null
-      : clamp(
-          assessedDimensions.reduce(
-            (sum, item) => sum + item.score * DIMENSIONS[item.key].weight,
-            0,
-          ) / dimensionWeightSum,
-        );
-
-  const constraints = hardConditions.map((item) => ({
-    name: item.label || "岗位硬性条件",
-    status: item.status === "met" ? "met" : item.status === "unmet" ? "unmet" : "unknown",
-    label: item.status === "met" ? "已满足" : item.status === "unmet" ? "不满足" : "待确认",
-    detail: item.explanation || item.resume_evidence || "简历中未提供足够信息。",
-  }));
-
-  if (!constraints.length) {
-    constraints.push({
-      name: "岗位硬性条件",
-      status: "unknown",
-      label: "未明确",
-      detail: "岗位未识别到明确硬性条件，仍需人工核对。",
-    });
   }
 
-  const confidenceInputs = raw?.confidence_inputs || {};
-  const unknownItems = Number(confidenceInputs.unknown_items || 0);
-  const totalCore = Number(confidenceInputs.core_requirements_total || requirements.length);
-  const unknownRatio = totalCore ? unknownItems / totalCore : 0;
-  const confidence = overall === null ? "低" : unknownRatio <= 0.2 ? "高" : unknownRatio <= 0.5 ? "中" : "低";
-  const fitLevel =
-    overall === null
-      ? "材料不足"
-      : overall >= 82
-        ? "较为匹配"
-        : overall >= 65
-          ? "部分匹配"
-          : overall >= 45
-            ? "证据偏弱"
-            : "匹配不足";
-  const suggestions = (raw?.suggestions || []).map((item) =>
-    typeof item === "string"
-      ? item
-      : [item.target, item.action].filter(Boolean).join("：") || "补充真实经历证据。",
+  const { raw, usage } = await callDeepSeekJson(
+    SCORING.JOB_RUBRIC_SYSTEM_PROMPT,
+    SCORING.buildJobRubricUserPrompt(job),
+    3500,
   );
+  const rubric = SCORING.normalizeJobRubric(raw, job);
+  if (jobRubricCache.size >= MAX_CACHE_ENTRIES) {
+    jobRubricCache.delete(jobRubricCache.keys().next().value);
+  }
+  jobRubricCache.set(key, { rubric });
+  return { rubric, usage, cached: false };
+}
 
+async function createDeepSeekAnalysis(resume, job) {
+  const rubricResult = await getJobRubric(job);
+  const resumeResult = await callDeepSeekJson(
+    SCORING.RESUME_EVIDENCE_SYSTEM_PROMPT,
+    SCORING.buildResumeEvidenceUserPrompt(resume, rubricResult.rubric),
+    7000,
+  );
+  const resumeData = SCORING.normalizeResumeEvidence(
+    resumeResult.raw,
+    rubricResult.rubric,
+  );
   return {
-    score: overall,
-    fitLevel,
-    confidence,
-    summary: raw?.summary || "已完成岗位与简历的证据分析。",
-    scoreExplanation:
-      "参考分由逐条证据的相关度、证据强度、承担深度和经历时效计算，再按岗位维度加权形成。",
-    notice:
-      material.is_sufficient === false
-        ? `暂不出总分：${(material.missing_dimensions || []).join("、") || material.reason || "材料不足"}。`
-        : "",
-    dimensions,
-    evidenceItems,
-    strengths: raw?.strengths || [],
-    gaps: raw?.gaps || [],
-    constraints,
-    suggestions,
+    rubric: rubricResult.rubric,
+    resumeData,
+    analysis: SCORING.buildAnalysis(
+      rubricResult.rubric,
+      resumeData,
+      resume,
+    ),
+    usage: mergeUsage(rubricResult.usage, resumeResult.usage),
+    rubricCached: rubricResult.cached,
   };
 }
 
@@ -325,7 +220,9 @@ async function handleAnalyze(request, response) {
     const normalizedResume = resume.trim();
     const normalizedJob = job.trim();
     const cacheKey = createHash("sha256")
-      .update(`${MODEL}\n${normalizedResume}\n${normalizedJob}`)
+      .update(
+        `${SCORING.PROTOCOL_VERSION}\n${MODEL}\n${normalizedResume}\n${normalizedJob}`,
+      )
       .digest("hex");
 
     if (analysisCache.has(cacheKey)) {
@@ -336,22 +233,26 @@ async function handleAnalyze(request, response) {
         modelAlias: MODEL,
         usage: cached.usage,
         cached: true,
+        rubricCached: true,
       });
       return;
     }
 
-    const { raw, usage } = await callDeepSeek(normalizedResume, normalizedJob);
-    const analysis = normalizeDeepSeekResult(raw);
+    const { analysis, usage, rubricCached } = await createDeepSeekAnalysis(
+      normalizedResume,
+      normalizedJob,
+    );
     if (analysisCache.size >= MAX_CACHE_ENTRIES) {
       analysisCache.delete(analysisCache.keys().next().value);
     }
-    analysisCache.set(cacheKey, { analysis, usage });
+    analysisCache.set(cacheKey, { analysis, usage, rubricCached });
     sendJson(response, 200, {
       analysis,
       model: MODEL_DISPLAY_NAME,
       modelAlias: MODEL,
       usage,
       cached: false,
+      rubricCached,
     });
   } catch (error) {
     console.error("DeepSeek analysis failed:", error);
@@ -376,11 +277,17 @@ async function serveStatic(request, response) {
 
   const blockedSegments = ["赛事文件", "tmp", ".git", "node_modules"];
   const pathSegments = relativePath.split(/[\\/]+/);
+  const normalizedSegments = pathSegments.map((segment) => segment.toLowerCase());
   const blocked =
-    pathSegments.some((segment) => blockedSegments.includes(segment)) ||
-    pathSegments.includes("docx") ||
-    pathSegments.includes("github") ||
-    pathSegments.some((segment) => segment === ".env" || segment === ".env.local");
+    normalizedSegments.some((segment) => blockedSegments.includes(segment)) ||
+    normalizedSegments.includes("docx") ||
+    normalizedSegments.includes("github") ||
+    normalizedSegments.some(
+      (segment) =>
+        segment === ".env" ||
+        segment === ".env.local" ||
+        segment === "config.local.js",
+    );
 
   if (blocked || !existsSync(filePath)) {
     response.writeHead(404);
@@ -410,6 +317,7 @@ export function createApplicationServer() {
         model: MODEL_DISPLAY_NAME,
         modelAlias: MODEL,
         baseUrl: BASE_URL,
+        protocolVersion: SCORING.PROTOCOL_VERSION,
       });
       return;
     }
@@ -438,6 +346,7 @@ if (isMain) {
   server.listen(PORT, HOST, () => {
     console.log(`职引者本地服务：http://${HOST}:${PORT}`);
     console.log(`模型：${MODEL_DISPLAY_NAME}（API别名：${MODEL}）`);
+    console.log(`评分协议：${SCORING.PROTOCOL_VERSION}`);
     console.log(
       `API密钥：${API_KEY ? "已配置" : "未配置，将自动使用模拟结果"}（${
         localEnvironment.loaded ? ".env.local" : "进程环境变量"

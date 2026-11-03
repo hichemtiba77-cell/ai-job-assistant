@@ -8,6 +8,7 @@ build/
 .env
 .env.*
 !.env.example
+config.local.js
 
 # Temporary working files
 tmp/
@@ -27,3 +28,4 @@ output/docx/
 
 # Generated upload packages
 output/github/
+output/test-package/
