@@ -10,6 +10,7 @@
     <title>求职诊断报告 · 职引者</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./report.css" />
+    <link rel="stylesheet" href="./report-theme.css" />
   </head>
   <body class="report-page">
     <div class="page-shell report-shell">
@@ -159,6 +160,23 @@
               </div>
               <small>“未找到”不等于“不具备”</small>
             </div>
+            <details class="scorecard-sheet" open>
+              <summary>查看结构化岗位表与简历事实表</summary>
+              <div class="scorecard-table-block">
+                <h3>岗位评分表</h3>
+                <p>固定编号由系统生成；同一次分析中的证据会严格回填到这些编号。</p>
+                <div class="scorecard-table-wrap">
+                  <table class="scorecard-table" id="jobRubricTable"></table>
+                </div>
+              </div>
+              <div class="scorecard-table-block">
+                <h3>简历事实表</h3>
+                <p>这里只记录简历明确写出的事实，不把岗位要求或行业常识补写进简历。</p>
+                <div class="scorecard-table-wrap">
+                  <table class="scorecard-table" id="resumeFactsTable"></table>
+                </div>
+              </div>
+            </details>
             <div class="report-evidence-list" id="evidenceList"></div>
           </section>
 
