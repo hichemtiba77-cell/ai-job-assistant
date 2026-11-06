@@ -332,4 +332,5 @@
   }
 
   render(payload);
+  document.querySelector("#interviewEntry").hidden = !payload.input?.job;
 })();

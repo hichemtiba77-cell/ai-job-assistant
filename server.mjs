@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadLocalEnvironment } from "./env-loader.mjs";
+import { createInterview, evaluateInterview, isInterviewInputError } from "./interview.mjs";
 import "./scoring-core.js";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)));
@@ -85,12 +86,13 @@ function mergeUsage(target, usage) {
   };
 }
 
-async function callDeepSeekJson(systemPrompt, userPrompt, maxTokens) {
+async function callDeepSeekJson(systemPrompt, userPrompt, maxTokens, signal) {
   const failures = [];
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await fetch(`${BASE_URL}/chat/completions`, {
       method: "POST",
+      signal,
       headers: {
         Authorization: `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
@@ -140,7 +142,7 @@ async function callDeepSeekJson(systemPrompt, userPrompt, maxTokens) {
   throw new Error(`DeepSeek连续两次未返回可用JSON（${failures.join("；")}）`);
 }
 
-async function getJobRubric(job) {
+async function getJobRubric(job, signal) {
   const key = createHash("sha256")
     .update(
       `${SCORING.PROTOCOL_VERSION}\n${MODEL}\n${SCORING.canonicalizeText(job)}`,
@@ -158,6 +160,7 @@ async function getJobRubric(job) {
     SCORING.JOB_RUBRIC_SYSTEM_PROMPT,
     SCORING.buildJobRubricUserPrompt(job),
     3500,
+    signal,
   );
   const rubric = SCORING.normalizeJobRubric(raw, job);
   if (jobRubricCache.size >= MAX_CACHE_ENTRIES) {
@@ -308,6 +311,38 @@ async function serveStatic(request, response) {
   }
 }
 
+async function handleInterview(request, response, operation) {
+  if (!API_KEY) {
+    sendJson(response, 503, { error: "模拟面试需要在 .env.local 中配置 DeepSeek API Key。" });
+    return;
+  }
+
+  let body;
+  try {
+    body = await getJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: "无法读取面试请求，请重试。" });
+    return;
+  }
+
+  const signal = AbortSignal.timeout(85_000);
+  try {
+    const result = await operation(body, {
+      getRubric: (job) => getJobRubric(job, signal),
+      generate: (prompt, input, maxTokens) => callDeepSeekJson(prompt, input, maxTokens, signal),
+    });
+    sendJson(response, 200, result);
+  } catch (error) {
+    if (isInterviewInputError(error)) {
+      sendJson(response, 400, { error: error.message });
+    } else if (signal.aborted) {
+      sendJson(response, 504, { error: "面试请求等待时间过长，请重试。" });
+    } else {
+      sendJson(response, 502, { error: "暂时无法生成面试内容，请检查网络或模型额度后重试。" });
+    }
+  }
+}
+
 export function createApplicationServer() {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/api/status") {
@@ -324,6 +359,16 @@ export function createApplicationServer() {
 
     if (request.method === "POST" && request.url === "/api/analyze") {
       await handleAnalyze(request, response);
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/interview/start") {
+      await handleInterview(request, response, createInterview);
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/interview/feedback") {
+      await handleInterview(request, response, evaluateInterview);
       return;
     }
 

@@ -575,3 +575,7 @@
     flex-direction: column;
   }
 }
+
+#interviewEntry[hidden] {
+  display: none;
+}

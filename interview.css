@@ -1,0 +1,82 @@
+.interview-shell { max-width: 900px; }
+
+.interview-return {
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.interview-card {
+  margin-top: 20px;
+  padding: clamp(20px, 4vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+}
+
+.interview-card h2, .interview-card legend {
+  margin: 0;
+  font-size: clamp(19px, 3.2vw, 25px);
+  font-weight: 800;
+}
+
+.interview-card fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
+.interview-card p { margin: 10px 0 16px; color: var(--muted); }
+
+.interview-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.interview-levels label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.interview-levels label:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.interview-levels small { display: block; color: var(--muted); }
+.interview-levels input { margin-top: 6px; accent-color: var(--blue); }
+.interview-card textarea { margin: 8px 0 14px; min-height: 140px; }
+.interview-card .primary-button { min-width: 0; }
+.interview-card button:disabled { cursor: wait; opacity: .65; }
+.interview-card .interview-progress { margin-top: 0; color: var(--blue); font-weight: 800; }
+
+.interview-reference, .interview-feedback li {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--background);
+}
+
+.interview-feedback { padding-left: 22px; }
+.interview-feedback li { margin: 12px 0; }
+.interview-feedback p, .interview-reference p { margin-bottom: 0; }
+.interview-reference { margin-bottom: 16px; }
+
+.interview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.interview-status { min-height: 1.6em; color: var(--blue); }
+.interview-status.is-error { color: var(--red); }
+
+@media (max-width: 640px) {
+  .interview-levels { grid-template-columns: 1fr; }
+  .interview-controls .primary-button { width: auto; }
+}
