@@ -49,6 +49,23 @@
   }
 
   function deriveHardGate(analysis) {
+    const gate = analysis.hardGate;
+    if (gate && Array.isArray(gate.requirementIds)) {
+      if (gate.blocked) {
+        return {
+          label: "不满足",
+          detail: `硬性条件未通过：${gate.requirementIds.join("、")}`,
+        };
+      }
+      if (gate.status === "unknown") {
+        return { label: "待确认", detail: "存在信息缺口，需向招聘方确认" };
+      }
+      if (gate.status === "pass") {
+        return { label: "已满足", detail: "已找到必要条件证据" };
+      }
+      return { label: "未明确", detail: "岗位没有单独列出的硬性门槛" };
+    }
+
     const statuses = (analysis.constraints || []).map((item) => item.status);
     if (!statuses.length || statuses.every((status) => status === "not_applicable")) {
       return { label: "未明确", detail: "岗位没有单独列出的硬性门槛" };
@@ -65,12 +82,79 @@
     return { label: "已满足", detail: "已找到必要条件证据" };
   }
 
+  function renderHardGateBanner(analysis) {
+    const banner = document.querySelector("#hardGateBanner");
+    const gate = analysis.hardGate;
+    if (!gate?.blocked) {
+      banner.hidden = true;
+      return;
+    }
+    const requirementIds = gate.requirementIds?.join("、") || "硬性条件";
+    const rawScore = Number.isFinite(analysis.rawScore)
+      ? analysis.rawScore
+      : "--";
+    const finalScore = Number.isFinite(analysis.score) ? analysis.score : "--";
+    banner.hidden = false;
+    document.querySelector("#hardGateBannerText").textContent =
+      `岗位硬性条件 ${requirementIds} 明确未满足。按规则，原始证据分 ${rawScore} 不能作为最终结论，综合分已封顶为 ${finalScore}。建议先确认报考资格，或调整目标岗位。`;
+  }
+
+  function renderScoring(analysis, meta) {
+    const target = document.querySelector("#scoringBreakdown");
+    const scoring = analysis.scoring;
+    if (!scoring?.dimensions?.length) {
+      target.innerHTML = "<p>本次结果没有可分解的维度评分。</p>";
+      return;
+    }
+
+    const rows = scoring.dimensions
+      .map((item) => {
+        const hasScore = Number.isFinite(item.score);
+        return `
+          <tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${Math.round((item.weight || 0) * 100)}%</td>
+            <td>${hasScore ? item.score : "—"}</td>
+            <td>${Number.isFinite(item.contribution) ? item.contribution : "—"}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    target.innerHTML = `
+      <div class="scorecard-table-wrap">
+        <table class="scorecard-table scoring-table">
+          <thead>
+            <tr>
+              <th>评分维度</th>
+              <th>权重</th>
+              <th>维度分</th>
+              <th>加权贡献</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="scoring-formula">${escapeHtml(scoring.formula || "")}</p>
+      <dl class="repro-info">
+        <div><dt>评分协议</dt><dd>${escapeHtml(meta.protocolVersion || "未记录")}</dd></div>
+        <div><dt>提示词指纹</dt><dd>${escapeHtml(meta.promptFingerprint || "未记录")}</dd></div>
+        <div><dt>结果生成时间</dt><dd>${escapeHtml(meta.generatedAt || meta.createdAt || "未记录")}</dd></div>
+        <div><dt>结果来源</dt><dd>${meta.cached ? "本地缓存（未重新调用模型）" : "本次模型调用"}</dd></div>
+      </dl>
+    `;
+  }
+
   function renderDimensions(dimensions) {
     const target = document.querySelector("#dimensionGrid");
     target.innerHTML = (dimensions || [])
       .map((item) => {
         const hasScore = Number.isFinite(item.score);
-        const unavailableLabel = item.assessed === false ? "未涉及" : "暂不评分";
+        const unavailableLabel = item.hardOnly
+          ? "仅硬性条件"
+          : item.assessed === false
+            ? "未涉及"
+            : "暂不评分";
         return `
           <div class="dimension-item${hasScore ? "" : " is-unknown"}">
             <div class="dimension-top">
@@ -80,6 +164,11 @@
             <div class="dimension-track" aria-hidden="true">
               <div class="dimension-fill" style="width: ${hasScore ? item.score : 0}%"></div>
             </div>
+            ${
+              hasScore
+                ? `<small class="dimension-weight">权重 ${Math.round((item.weight || 0) * 100)}% · 加权贡献 ${item.contribution}</small>`
+                : ""
+            }
             <p>${escapeHtml(item.detail || "")}</p>
           </div>
         `;
@@ -297,7 +386,9 @@
       ? `<strong>材料提示</strong>${escapeHtml(analysis.notice)}`
       : "";
 
+    renderHardGateBanner(analysis);
     renderDimensions(analysis.dimensions);
+    renderScoring(analysis, meta);
     renderScorecardTables(analysis);
     renderEvidence(analysis.evidenceItems);
     renderConstraints(analysis.constraints);
@@ -325,6 +416,65 @@
       tabs[nextIndex].focus();
     });
   });
+
+  async function handleForgetRecord() {
+    const button = document.querySelector("#forgetButton");
+    const confirmed = window.confirm(
+      "将删除本机缓存中的本次分析记录，并清空当前浏览器里的报告。此操作不可撤销，是否继续？",
+    );
+    if (!confirmed) return;
+
+    const input = readPayload()?.input || {};
+    let outcome = "local";
+    button.disabled = true;
+    button.textContent = "正在删除…";
+
+    if (
+      input.resume &&
+      input.job &&
+      (location.protocol === "http:" || location.protocol === "https:")
+    ) {
+      try {
+        const response = await fetch("./api/forget", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resume: input.resume, job: input.job }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+          outcome = data.deleted ? "server" : "missing";
+        } else {
+          outcome = "offline";
+        }
+      } catch {
+        outcome = "offline";
+      }
+    }
+
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem("aijob:input:v1");
+    } catch {
+      // 浏览器禁用存储时没有可清理的本地记录。
+    }
+
+    showEmptyState();
+    const empty = document.querySelector("#reportEmpty");
+    empty.querySelector("h1").textContent = "记录已删除";
+    empty.querySelector("p").textContent =
+      outcome === "server"
+        ? "服务器缓存和当前浏览器中的报告均已清除。"
+        : outcome === "missing"
+          ? "当前浏览器中的报告已清空；服务器中没有找到对应缓存。"
+          : outcome === "offline"
+            ? "当前浏览器中的报告已清空；未能连接本地服务确认缓存删除。"
+            : "当前浏览器中的报告已清空。";
+    empty.querySelector("a").textContent = "重新填写材料";
+  }
+
+  document
+    .querySelector("#forgetButton")
+    .addEventListener("click", handleForgetRecord);
 
   if (!payload?.analysis) {
     showEmptyState();
