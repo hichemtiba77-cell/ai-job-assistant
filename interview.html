@@ -8,17 +8,15 @@
     <link rel="stylesheet" href="./report.css" />
     <link rel="stylesheet" href="./report-theme.css" />
     <link rel="stylesheet" href="./interview.css" />
+    <link rel="stylesheet" href="./lake-workspace.css" />
   </head>
-  <body class="report-page">
-    <div class="page-shell interview-shell">
-      <header class="site-header">
+  <body class="lake-page lake-interview report-page">
+    <div class="lake-workspace">
+      <aside class="lake-rail" aria-label="本轮面试信息">
         <a class="brand" href="./report.html">
           <span class="brand-mark" aria-hidden="true">职</span>
           <span><strong>职引者</strong><small>求职面试练习</small></span>
         </a>
-        <a class="interview-return" href="./report.html">返回诊断报告</a>
-      </header>
-      <main>
         <section class="report-heading">
           <div>
             <span class="report-kicker">岗位练习 · 3 道文字题</span>
@@ -26,11 +24,23 @@
             <p id="interviewJob"></p>
           </div>
         </section>
-
+        <a class="interview-return lake-rail-action" href="./report.html">返回诊断报告</a>
+      </aside>
+      <main class="lake-content">
         <section class="interview-card" id="interviewUnavailable" hidden>
           <h2>先准备一份岗位诊断</h2>
           <p id="interviewUnavailableText">填写简历和岗位要求，生成诊断报告后再开始面试。</p>
           <a class="interview-return" href="./index.html">返回材料页 →</a>
+        </section>
+
+        <section class="lake-interview-guide" aria-labelledby="interview-guide-title">
+          <h2 id="interview-guide-title">本轮考察</h2>
+          <ol>
+            <li>讲清个人做过什么</li>
+            <li>说明方法及选择依据</li>
+            <li>回答一个岗位场景</li>
+          </ol>
+          <p>可以用真实的课程、项目或实习经历。遇到情境题时，先说明你的假设。</p>
         </section>
 
         <form class="interview-card" id="interviewSetup" hidden>
