@@ -2,77 +2,10 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="0; url=./index.html?interview=1#mockInterview" />
     <title>文字模拟面试 · 职引者</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./report.css" />
-    <link rel="stylesheet" href="./report-theme.css" />
-    <link rel="stylesheet" href="./interview.css" />
   </head>
-  <body class="report-page">
-    <div class="page-shell interview-shell">
-      <header class="site-header">
-        <a class="brand" href="./report.html">
-          <span class="brand-mark" aria-hidden="true">职</span>
-          <span><strong>职引者</strong><small>求职面试练习</small></span>
-        </a>
-        <a class="interview-return" href="./report.html">返回诊断报告</a>
-      </header>
-      <main>
-        <section class="report-heading">
-          <div>
-            <span class="report-kicker">岗位练习 · 3 道文字题</span>
-            <h1>文字模拟面试</h1>
-            <p id="interviewJob"></p>
-          </div>
-        </section>
-
-        <section class="interview-card" id="interviewUnavailable" hidden>
-          <h2>先准备一份岗位诊断</h2>
-          <p id="interviewUnavailableText">填写简历和岗位要求，生成诊断报告后再开始面试。</p>
-          <a class="interview-return" href="./index.html">返回材料页 →</a>
-        </section>
-
-        <form class="interview-card" id="interviewSetup" hidden>
-          <fieldset>
-            <legend>选择练习难度</legend>
-            <p>三档都围绕当前岗位，区别在于追问深度。</p>
-            <div class="interview-levels">
-              <label><input type="radio" name="difficulty" value="basic" /><span><strong>简单 · 基础表达</strong><small>讲清经历和个人贡献</small></span></label>
-              <label><input type="radio" name="difficulty" value="standard" checked /><span><strong>标准 · 岗位实战</strong><small>说明方法、依据和结果</small></span></label>
-              <label><input type="radio" name="difficulty" value="challenge" /><span><strong>挑战 · 深度追问</strong><small>在约束下权衡方案并验证</small></span></label>
-            </div>
-          </fieldset>
-          <p>题目按本次岗位与证据生成。作答时使用真实经历，也可以明确说明假设。</p>
-          <button type="submit" class="primary-button">生成本轮面试题 →</button>
-        </form>
-
-        <form class="interview-card" id="interviewPractice" hidden>
-          <p class="interview-progress" id="interviewProgress"></p>
-          <h2 id="interviewQuestion" tabindex="-1"></h2>
-          <p class="interview-reference" id="interviewReference"></p>
-          <label for="interviewAnswer">你的回答</label>
-          <textarea id="interviewAnswer" rows="6" maxlength="2000" required placeholder="可以从背景、个人行动和结果讲起。场景题请说明做法和原因。"></textarea>
-          <div class="interview-controls">
-            <button type="button" class="text-button" id="interviewPrevious">上一题</button>
-            <button type="submit" class="primary-button" id="interviewContinue">下一题 →</button>
-          </div>
-        </form>
-
-        <section class="interview-card" id="interviewResult" hidden>
-          <h2 id="interviewResultTitle" tabindex="-1">本轮面试反馈</h2>
-          <p id="interviewSummary"></p>
-          <ol class="interview-feedback" id="interviewFeedback"></ol>
-          <div class="interview-reference">
-            <strong>下一步练习</strong>
-            <p id="interviewNextAction"></p>
-          </div>
-          <button type="button" class="primary-button" id="interviewRestart">再练一轮 →</button>
-        </section>
-        <p class="interview-status" id="interviewStatus" role="status" aria-live="polite"></p>
-      </main>
-      <footer class="site-footer"><span>职引者 · 校园求职训练</span><span>练习反馈仅供求职准备参考</span></footer>
-    </div>
-    <script src="./interview.js" defer></script>
+  <body>
+    <a href="./index.html?interview=1#mockInterview">打开文字模拟面试</a>
   </body>
 </html>

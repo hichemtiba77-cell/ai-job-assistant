@@ -271,15 +271,21 @@
 
     try {
       const result = await analyzeResumeText(resume, job);
-      sessionStorage.setItem(INPUT_KEY, JSON.stringify({ resume, job }));
-      sessionStorage.setItem(
-        DIAGNOSIS_KEY,
-        JSON.stringify({
-          input: { resume, job },
-          analysis: result.analysis,
-          meta: result.meta,
-        }),
-      );
+      const payload = { input: { resume, job }, analysis: result.analysis, meta: result.meta };
+      const inline = location.protocol === "file:";
+      let saved = false;
+      try {
+        sessionStorage.setItem(INPUT_KEY, JSON.stringify(payload.input));
+        sessionStorage.setItem(DIAGNOSIS_KEY, JSON.stringify(payload));
+        saved = true;
+      } catch (error) {
+        if (!inline) throw error;
+      }
+      if (inline) {
+        window.AIJobAssistantInterview.open(payload, { saved });
+        resetAnalyzeButton();
+        return;
+      }
       const requestedTab = new URLSearchParams(window.location.search).get("tab");
       window.location.assign(
         requestedTab

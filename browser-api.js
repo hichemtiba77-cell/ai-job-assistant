@@ -164,8 +164,27 @@
     return result;
   }
 
+  async function requestInterviewDirect(path, body) {
+    if (!hasDirectConfig()) {
+      throw new Error("面试需要本地 DeepSeek 配置。可运行 npm run configure-browser 从 .env.local 生成配置，然后重新打开本页。");
+    }
+    const { createInterview, evaluateInterview, isInterviewInputError } = window.AIJobAssistantInterviewCore;
+    const config = getConfig();
+    const operation = path === "start" ? createInterview : evaluateInterview;
+    try {
+      return await operation(body, {
+        getRubric: (job) => getJobRubric(config, job),
+        generate: (prompt, input, maxTokens) => callDeepSeekJson(config, prompt, input, maxTokens),
+      });
+    } catch (error) {
+      if (isInterviewInputError(error)) throw error;
+      throw new Error("暂时无法生成面试内容，请检查网络、DeepSeek 配置或模型额度后重试。");
+    }
+  }
+
   window.AIJobAssistantBrowserApi = {
     requestDirect,
+    requestInterviewDirect,
     hasDirectConfig,
   };
 })();
