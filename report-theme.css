@@ -1,9 +1,5 @@
 .report-page {
-  background:
-    radial-gradient(1100px 560px at 84% -8%, rgba(96, 165, 250, 0.2), transparent 62%),
-    radial-gradient(860px 500px at -6% 10%, rgba(129, 140, 248, 0.16), transparent 58%),
-    radial-gradient(780px 520px at 52% 112%, rgba(14, 165, 233, 0.12), transparent 60%),
-    #f2f6fb;
+  background: var(--background);
 }
 
 .report-shell {
@@ -81,27 +77,8 @@
   padding: 42px 42px;
   border-radius: 24px;
   color: #fff;
-  background:
-    radial-gradient(560px 320px at 100% 108%, rgba(4, 9, 24, 0.92), transparent 66%),
-    linear-gradient(112deg, rgba(7, 14, 35, 0.92) 0%, rgba(9, 19, 46, 0.84) 50%, rgba(8, 16, 40, 0.6) 100%),
-    radial-gradient(620px 320px at 84% 0%, rgba(124, 58, 237, 0.32), transparent 60%),
-    radial-gradient(520px 300px at 6% 22%, rgba(59, 130, 246, 0.34), transparent 56%),
-    url("./UI_file/Premium_abstract_technology_ba_2026-11-02T05-18-07.png") 62% 30% / cover no-repeat,
-    linear-gradient(150deg, #0a1330 0%, #101c3f 55%, #0a1430 100%);
-  box-shadow: 0 30px 70px rgba(23, 43, 77, 0.26);
-}
-
-.report-heading::before {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
-  -webkit-mask-image: radial-gradient(120% 100% at 20% 0%, #000 20%, transparent 80%);
-  mask-image: radial-gradient(120% 100% at 20% 0%, #000 20%, transparent 80%);
-  pointer-events: none;
-  content: "";
+  background: linear-gradient(115deg, var(--ink), #185466);
+  box-shadow: 0 20px 44px rgba(16, 44, 65, .15);
 }
 
 .report-kicker {
@@ -539,37 +516,6 @@
   font-size: 11px;
   font-weight: 800;
   text-decoration: none;
-}
-
-@keyframes report-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.report-heading {
-  animation: report-fade-up 520ms ease both;
-}
-
-.report-summary {
-  animation: report-fade-up 520ms 80ms ease both;
-}
-
-.report-paper {
-  animation: report-fade-up 520ms 160ms ease both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-  }
 }
 
 @media (max-width: 860px) {
