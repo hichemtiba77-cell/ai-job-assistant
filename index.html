@@ -9,7 +9,6 @@
     />
     <title>AI求职助手 · 岗位诊断</title>
     <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./interview.css" />
   </head>
   <body>
     <div class="hero-zone">
@@ -222,55 +221,6 @@
         </section>
 
         <p class="form-message" id="formMessage" role="alert" aria-live="polite"></p>
-
-        <section class="interview-shell" id="mockInterview" aria-labelledby="interviewTitle" hidden>
-          <div class="interview-heading">
-            <div>
-              <div class="eyebrow">岗位练习 · 3 道文字题</div>
-              <h2 id="interviewTitle" tabindex="-1">文字模拟面试</h2>
-              <p id="interviewJob"></p>
-              <p id="interviewDiagnosis"></p>
-            </div>
-            <a class="interview-return" href="./report.html">查看完整诊断报告 →</a>
-          </div>
-          <form class="interview-card" id="interviewSetup" hidden>
-            <fieldset>
-              <legend>选择练习难度</legend>
-              <p>三档都围绕当前岗位，区别在于追问深度。</p>
-              <div class="interview-levels">
-                <label><input type="radio" name="difficulty" value="basic" /><span><strong>简单 · 基础表达</strong><small>讲清经历和个人贡献</small></span></label>
-                <label><input type="radio" name="difficulty" value="standard" checked /><span><strong>标准 · 岗位实战</strong><small>说明方法、依据和结果</small></span></label>
-                <label><input type="radio" name="difficulty" value="challenge" /><span><strong>挑战 · 深度追问</strong><small>在约束下权衡方案并验证</small></span></label>
-              </div>
-            </fieldset>
-            <p>题目按本次岗位与证据生成。作答时使用真实经历，也可以明确说明假设。</p>
-            <button type="submit" class="primary-button">生成本轮面试题 →</button>
-          </form>
-
-          <form class="interview-card" id="interviewPractice" hidden>
-            <p class="interview-progress" id="interviewProgress"></p>
-            <h2 id="interviewQuestion" tabindex="-1"></h2>
-            <p class="interview-reference" id="interviewReference"></p>
-            <label for="interviewAnswer">你的回答</label>
-            <textarea id="interviewAnswer" rows="6" maxlength="2000" required placeholder="可以从背景、个人行动和结果讲起。场景题请说明做法和原因。"></textarea>
-            <div class="interview-controls">
-              <button type="button" class="text-button" id="interviewPrevious">上一题</button>
-              <button type="submit" class="primary-button" id="interviewContinue">下一题 →</button>
-            </div>
-          </form>
-
-          <section class="interview-card" id="interviewResult" hidden>
-            <h2 id="interviewResultTitle" tabindex="-1">本轮面试反馈</h2>
-            <p id="interviewSummary"></p>
-            <ol class="interview-feedback" id="interviewFeedback"></ol>
-            <div class="interview-reference">
-              <strong>下一步练习</strong>
-              <p id="interviewNextAction"></p>
-            </div>
-            <button type="button" class="primary-button" id="interviewRestart">再练一轮 →</button>
-          </section>
-          <p class="interview-status" id="interviewStatus" role="status" aria-live="polite"></p>
-        </section>
       </main>
 
       <footer class="site-footer">
@@ -284,10 +234,7 @@
     <script src="./vendor/pdfjs/pdf.min.js"></script>
     <script src="./pdf-extractor.js"></script>
     <script src="./scoring-core.js"></script>
-    <script src="./interview-prompts.js"></script>
-    <script src="./interview-core.js"></script>
     <script src="./browser-api.js"></script>
-    <script src="./interview.js"></script>
     <script src="./data/examples.js"></script>
     <script src="./analysis-core.js"></script>
     <script src="./app.js"></script>

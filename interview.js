@@ -2,7 +2,6 @@
   "use strict";
 
   const STORAGE_KEY = "aijob:interview:v1";
-  const panel = document.querySelector("#mockInterview");
   const setup = document.querySelector("#interviewSetup");
   const practice = document.querySelector("#interviewPractice");
   const result = document.querySelector("#interviewResult");
@@ -11,10 +10,6 @@
   const next = document.querySelector("#interviewContinue");
   const status = document.querySelector("#interviewStatus");
   const levelLabels = { basic: "基础表达", standard: "岗位实战", challenge: "深度追问" };
-  let report;
-  let title;
-  let reportHash;
-  let state;
 
   function read(key) {
     try {
@@ -24,41 +19,27 @@
     }
   }
 
-  function open(payload, { saved = true } = {}) {
-    if (!payload?.analysis || !payload.input?.job) return;
-    report = payload;
-    const { analysis, meta } = report;
-    title = analysis.jobRubric?.title || meta?.jobTitle || "当前目标岗位";
-    document.querySelector("#interviewJob").textContent = title;
-    document.querySelector("#interviewDiagnosis").textContent = [
-      Number.isFinite(analysis.score) ? `匹配参考 ${analysis.score} 分` : "本次诊断已完成",
-      analysis.fitLevel,
-    ].filter(Boolean).join(" · ");
-    panel.querySelector(".interview-return").hidden = !saved;
-
-    // Match saved practice to this report without duplicating the resume in storage.
-    reportHash = 2166136261;
-    for (const character of JSON.stringify([report.input, meta?.createdAt])) {
-      reportHash = Math.imul(reportHash ^ character.codePointAt(0), 16777619);
-    }
-    const practiceState = read(STORAGE_KEY);
-    state = practiceState?.reportHash === reportHash ? practiceState : { reportHash, difficulty: "standard" };
-
-    setup.querySelector("button").disabled = false;
-    next.disabled = previous.disabled = answer.readOnly = false;
-    message("");
-    panel.hidden = false;
-    if (state.result) showResult(false);
-    else if (state.questions) showQuestion(false);
-    else showSetup();
-    try {
-      history.replaceState(null, "", "#mockInterview");
-    } catch {
-      // Some browsers restrict history changes for local files.
-    }
-    panel.scrollIntoView();
-    document.querySelector("#interviewTitle").focus({ preventScroll: true });
+  function showUnavailable(message) {
+    document.querySelector("#interviewUnavailable").hidden = false;
+    if (message) document.querySelector("#interviewUnavailableText").textContent = message;
   }
+
+  const report = read("aijob:diagnosis:v1");
+  if (!report?.analysis || !report.input?.job) {
+    showUnavailable();
+    return;
+  }
+
+  const title = report.analysis.jobRubric?.title || report.meta?.jobTitle || "当前目标岗位";
+  document.querySelector("#interviewJob").textContent = title;
+
+  // Match a saved practice to its source report without duplicating the resume in storage.
+  let reportHash = 2166136261;
+  for (const character of JSON.stringify([report.input, report.meta?.createdAt])) {
+    reportHash = Math.imul(reportHash ^ character.codePointAt(0), 16777619);
+  }
+  const saved = read(STORAGE_KEY);
+  let state = saved?.reportHash === reportHash ? saved : { reportHash, difficulty: "standard" };
 
   function save() {
     try {
@@ -138,7 +119,6 @@
     event.preventDefault();
     const button = setup.querySelector("button");
     if (button.disabled) return;
-    const activeReport = report;
     button.disabled = true;
     message("正在整理考察项并生成面试题…");
     const difficulty = setup.elements.difficulty.value;
@@ -151,15 +131,14 @@
         evidenceItems: report.analysis.evidenceItems,
         previousQuestions: state.previousQuestions,
       });
-      if (activeReport !== report) return;
       state = { reportHash, difficulty, questions, index: 0, answers: [] };
       save();
       showQuestion();
       message("");
     } catch (error) {
-      if (activeReport === report) message(error.message, true);
+      message(error.message, true);
     } finally {
-      if (activeReport === report) button.disabled = false;
+      button.disabled = false;
     }
   });
 
@@ -194,23 +173,20 @@
       return;
     }
 
-    const activeReport = report;
     next.disabled = previous.disabled = answer.readOnly = true;
     message("正在整理逐题反馈和下一步练习…");
     try {
-      const feedback = await request("feedback", {
+      state.result = await request("feedback", {
         difficulty: state.difficulty,
         responses: state.questions.map((question, index) => ({ ...question, answer: state.answers[index] })),
       });
-      if (activeReport !== report) return;
-      state.result = feedback;
       save();
       showResult();
       message("");
     } catch (error) {
-      if (activeReport === report) message(error.message, true);
+      message(error.message, true);
     } finally {
-      if (activeReport === report) next.disabled = previous.disabled = answer.readOnly = false;
+      next.disabled = previous.disabled = answer.readOnly = false;
     }
   });
 
@@ -221,8 +197,7 @@
     setup.querySelector("input:checked")?.focus();
   });
 
-  window.AIJobAssistantInterview = { open };
-  if (location.hash === "#mockInterview" || new URLSearchParams(location.search).has("interview")) {
-    open(read("aijob:diagnosis:v1"));
-  }
+  if (state.result) showResult(false);
+  else if (state.questions) showQuestion(false);
+  else showSetup();
 })();
