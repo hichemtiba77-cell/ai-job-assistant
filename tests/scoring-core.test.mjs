@@ -252,3 +252,10 @@ test("只有一个bonus要求的维度不会被权重错误减半", () => {
   );
   assert.equal(behavior.score, behaviorEvidence.requirementScore);
 });
+
+test("证据提示词要求硬性条件与简历事实冲突时标记unmet", () => {
+  assert.match(
+    SCORING.RESUME_EVIDENCE_SYSTEM_PROMPT,
+    /学历、专业、毕业时间、证书、到岗时间等与硬性条件冲突时，必须填unmet/,
+  );
+});

@@ -103,7 +103,7 @@
 
   async function getJobRubric(config, job) {
     const model = String(config.DEEPSEEK_MODEL || "deepseek-flash");
-    const cacheKey = `${SCORING.PROTOCOL_VERSION}\n${model}\n${SCORING.canonicalizeText(job)}`;
+    const cacheKey = SCORING.buildRubricCacheKeyInput({ model, job });
     if (rubricCache.has(cacheKey)) {
       return {
         rubric: rubricCache.get(cacheKey),
@@ -123,22 +123,31 @@
     return { rubric, usage: result.usage, cached: false };
   }
 
-  async function requestDirect(resume, job) {
+  async function requestDirect(resume, job, options = {}) {
     const config = getConfig();
     if (!hasDirectConfig()) {
       throw new Error("测试直连尚未配置。");
     }
 
+    const onProgress =
+      typeof options.onProgress === "function" ? options.onProgress : () => {};
     const model = String(config.DEEPSEEK_MODEL || "deepseek-flash");
     const displayName = String(
       config.DEEPSEEK_DISPLAY_NAME || "DeepSeek-V4.1-Flash-1017",
     );
-    const cacheKey = `${SCORING.PROTOCOL_VERSION}\n${model}\n${resume}\n${job}`;
-    if (analysisCache.has(cacheKey)) {
+    const cacheKey = SCORING.buildAnalysisCacheKeyInput({
+      model,
+      resume,
+      job,
+    });
+    if (!options.fresh && analysisCache.has(cacheKey)) {
+      onProgress({ stage: "cache" });
       return { ...analysisCache.get(cacheKey), cached: true };
     }
 
+    onProgress({ stage: "rubric" });
     const rubricResult = await getJobRubric(config, job);
+    onProgress({ stage: "evidence" });
     const resumeResult = await callDeepSeekJson(
       config,
       SCORING.RESUME_EVIDENCE_SYSTEM_PROMPT,
@@ -149,6 +158,7 @@
       resumeResult.raw,
       rubricResult.rubric,
     );
+    onProgress({ stage: "scoring" });
     const result = {
       analysis: SCORING.buildAnalysis(
         rubricResult.rubric,
@@ -159,6 +169,9 @@
       model: displayName,
       cached: false,
       rubricCached: rubricResult.cached,
+      protocolVersion: SCORING.PROTOCOL_VERSION,
+      promptFingerprint: SCORING.PROMPT_FINGERPRINT,
+      createdAt: new Date().toISOString(),
     };
     analysisCache.set(cacheKey, result);
     return result;

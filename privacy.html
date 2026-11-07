@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="职引者隐私与数据说明：简历和岗位文字如何处理、存储、删除与保留期限。"
+    />
+    <title>隐私与数据说明 · 职引者</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      .privacy-shell {
+        max-width: 900px;
+      }
+
+      .privacy-main {
+        margin: 48px 0 60px;
+        padding: 36px 40px;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: #fff;
+      }
+
+      .privacy-shell .back-button {
+        color: var(--muted);
+        font-size: 12px;
+        text-decoration: none;
+      }
+
+      .privacy-shell .back-button:hover {
+        color: var(--blue);
+      }
+
+      .privacy-main .report-kicker {
+        color: var(--blue);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+      }
+
+      .privacy-main h1 {
+        margin: 6px 0 10px;
+        font-size: clamp(28px, 4vw, 38px);
+      }
+
+      .privacy-main > p {
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      .privacy-main h2 {
+        margin: 30px 0 10px;
+        font-size: 17px;
+      }
+
+      .privacy-main p,
+      .privacy-main li {
+        color: #334155;
+        font-size: 14px;
+        line-height: 1.85;
+      }
+
+      .privacy-main ul {
+        padding-left: 20px;
+      }
+
+      .privacy-main code {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: #f1f5f9;
+        font-size: 12px;
+      }
+
+      .privacy-back {
+        display: inline-flex;
+        margin-top: 28px;
+        color: var(--blue);
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      @media (max-width: 640px) {
+        .privacy-main {
+          padding: 24px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell privacy-shell">
+      <header class="site-header">
+        <a class="brand" href="./index.html" aria-label="职引者首页">
+          <span class="brand-mark">职</span>
+          <span>
+            <strong>职引者</strong>
+            <small>隐私与数据说明</small>
+          </span>
+        </a>
+        <a class="back-button" href="./index.html">返回首页</a>
+      </header>
+
+      <main class="privacy-main">
+        <span class="report-kicker">数据边界 · 2026-11-07</span>
+        <h1>隐私与数据说明</h1>
+        <p>
+          本页说明职引者在生成求职诊断时处理哪些数据、数据流向哪里、保留多久，以及如何删除。
+          使用前请先阅读；点击“生成求职诊断报告”即表示你已理解并同意以下处理方式。
+        </p>
+
+        <h2>1. 处理哪些数据</h2>
+        <ul>
+          <li>你上传的简历 PDF，以及从 PDF 中提取出的文字；</li>
+          <li>你粘贴或编辑的简历文字；</li>
+          <li>你粘贴的目标岗位招聘要求。</li>
+        </ul>
+        <p>
+          请勿在简历或岗位文本中填写身份证号、银行卡号、家庭住址等与求职诊断无关的敏感信息。
+        </p>
+
+        <h2>2. PDF 在哪里解析</h2>
+        <p>
+          简历 PDF 在浏览器中本地解析，文件本身不会上传到任何文件存储服务。解析出的文字会进入下一步分析。
+        </p>
+
+        <h2>3. 文字发送到哪里</h2>
+        <p>
+          在本地演示环境中，浏览器将简历文字和岗位文字发送给本机运行的 Node 服务（默认
+          <code>127.0.0.1:3000</code>），再由该服务转发给 DeepSeek API 完成岗位评分表提取和简历证据核对。
+          若启用浏览器直连模式，则由浏览器直接请求 DeepSeek API。生成模拟面试题时会发送岗位要求和相关证据，点评时也会发送作答内容。无论哪种方式，发送的文字都会离开本机并受
+          DeepSeek 服务条款和隐私政策约束。
+        </p>
+        <p>
+          本项目不提供账号系统，不接入统计分析或广告服务，也不会把简历文件上传到对象存储。
+        </p>
+
+        <h2>4. 本地保存什么、保留多久</h2>
+        <ul>
+          <li>
+            <strong>浏览器会话存储：</strong>当前输入的简历、岗位文字、诊断报告和模拟面试记录保存在
+            <code>sessionStorage</code> 中，关闭标签页后自动清除。
+          </li>
+          <li>
+            <strong>服务端分析缓存：</strong>使用 SQLite 缓存同一简历与岗位的分析结果，避免重复调用模型。
+            缓存包含分析结论、报告中引用的简历原句、模型与协议版本、token 用量和内容哈希，不单独保存完整的简历与岗位原文。
+          </li>
+          <li>
+            <strong>保留期限：</strong>默认最多保留 30 天（可通过环境变量
+            <code>CACHE_TTL_DAYS</code> 调整），服务启动时会清理过期记录。相同材料再次分析会命中缓存，勾选“忽略缓存”才会重新调用模型。
+          </li>
+          <li>
+            <strong>调用审计：</strong>默认只记录请求哈希和 token 用量；只有显式设置
+            <code>LOG_RAW_RESPONSES=1</code> 时才保存模型原始返回内容，用于调试。
+          </li>
+        </ul>
+
+        <h2>5. 如何删除</h2>
+        <p>
+          在诊断报告页右上角点击“删除本次记录”。系统会按简历与岗位原文定位并删除服务端对应的分析缓存、
+          与该次分析关联的调用日志，同时清空当前标签页中的输入、报告和模拟面试。删除操作不可撤销。
+        </p>
+        <p>
+          如果报告页打不开或无法连接本地服务，你也可以直接删除缓存文件
+          <code>data/cache.db</code>（以及同目录下的 <code>-wal</code>、<code>-shm</code>
+          文件），或等待超过保留期限后由系统自动清理。
+        </p>
+
+        <h2>6. 结果如何使用</h2>
+        <p>
+          诊断结果仅用于求职材料自查和面试准备，不构成录用承诺或法律意见。分数由固定规则程序计算，
+          模型只负责提取岗位要求和简历证据，不直接给出总分。
+        </p>
+
+        <a class="privacy-back" href="./index.html">返回材料填写页 →</a>
+      </main>
+
+      <footer class="site-footer">
+        <span>职引者 · 郑州大学首届AI智能体创新应用大赛</span>
+        <span>隐私与数据说明 · 2026.11</span>
+      </footer>
+    </div>
+  </body>
+</html>

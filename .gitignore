@@ -14,6 +14,11 @@ config.local.js
 tmp/
 *.log
 
+# Local cache database
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
 # Editor and operating-system files
 .DS_Store
 Thumbs.db
@@ -29,3 +34,4 @@ output/docx/
 # Generated upload packages
 output/github/
 output/test-package/
+output/eval/

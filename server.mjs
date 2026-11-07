@@ -6,7 +6,14 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadLocalEnvironment } from "./env-loader.mjs";
 import { createInterview, evaluateInterview, isInterviewInputError } from "./interview.mjs";
+import { createSqliteStore } from "./storage/sqlite-store.mjs";
+import {
+  ANALYSIS_STAGES,
+  encodeSseEvent,
+} from "./progress-events.mjs";
 import "./scoring-core.js";
+
+const [STAGE_RUBRIC, STAGE_EVIDENCE, STAGE_SCORING] = ANALYSIS_STAGES;
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const SCORING = globalThis.AIJobAssistantScoring;
@@ -21,9 +28,26 @@ const BASE_URL = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").r
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-flash";
 const MODEL_DISPLAY_NAME =
   process.env.DEEPSEEK_DISPLAY_NAME || "DeepSeek-V4.1-Flash-1017";
-const analysisCache = new Map();
-const jobRubricCache = new Map();
-const MAX_CACHE_ENTRIES = 50;
+const CACHE_DB = process.env.CACHE_DB || join(ROOT, "data", "cache.db");
+const requestedTtlDays = Number(process.env.CACHE_TTL_DAYS || 30);
+const CACHE_TTL_DAYS =
+  Number.isFinite(requestedTtlDays) && requestedTtlDays >= 0
+    ? requestedTtlDays
+    : 30;
+const store = createSqliteStore({ file: CACHE_DB });
+
+function hashText(value) {
+  return createHash("sha256").update(String(value || "")).digest("hex");
+}
+
+function safeStore(operation, fallback = null) {
+  try {
+    return operation();
+  } catch (error) {
+    console.error("缓存读写失败：", error.message);
+    return fallback;
+  }
+}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -86,30 +110,44 @@ function mergeUsage(target, usage) {
   };
 }
 
-async function callDeepSeekJson(systemPrompt, userPrompt, maxTokens, signal) {
+async function callDeepSeekJson(
+  systemPrompt,
+  userPrompt,
+  maxTokens,
+  stage = "unknown",
+  cacheKey = null,
+  signal,
+) {
   const failures = [];
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await fetch(`${BASE_URL}/chat/completions`, {
-      method: "POST",
-      signal,
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0,
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" },
-        thinking: { type: "disabled" },
-        stream: false,
-      }),
-    });
+    let response;
+    try {
+      response = await fetch(`${BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0,
+          max_tokens: maxTokens,
+          response_format: { type: "json_object" },
+          thinking: { type: "disabled" },
+          stream: false,
+        }),
+        signal: signal ?? AbortSignal.timeout(120_000),
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      failures.push(`请求超时或网络错误 ${error.name || ""}`.trim());
+      continue;
+    }
 
     if (!response.ok) {
       const detail = await response.text();
@@ -127,30 +165,46 @@ async function callDeepSeekJson(systemPrompt, userPrompt, maxTokens, signal) {
       continue;
     }
 
+    let raw;
     try {
-      return {
-        raw: parseJsonContent(content),
-        usage: data.usage || null,
-      };
+      raw = parseJsonContent(content);
     } catch {
       failures.push(
         `JSON格式错误 ${data?.choices?.[0]?.finish_reason || "unknown"}`,
       );
+      continue;
     }
+
+    if (stage) safeStore(() =>
+      store.logRun({
+        cacheKey,
+        stage,
+        model: MODEL,
+        requestHash: hashText(`${systemPrompt}\n${userPrompt}`),
+        rawResponse:
+          process.env.LOG_RAW_RESPONSES === "1" ? content : null,
+        usage: data.usage || null,
+      }),
+    );
+
+    return {
+      raw,
+      usage: data.usage || null,
+    };
   }
 
   throw new Error(`DeepSeek连续两次未返回可用JSON（${failures.join("；")}）`);
 }
 
 async function getJobRubric(job, signal) {
-  const key = createHash("sha256")
-    .update(
-      `${SCORING.PROTOCOL_VERSION}\n${MODEL}\n${SCORING.canonicalizeText(job)}`,
-    )
-    .digest("hex");
-  if (jobRubricCache.has(key)) {
+  const key = hashText(
+    SCORING.buildRubricCacheKeyInput({ model: MODEL, job }),
+  );
+  const cachedRubric = safeStore(() => store.getRubric(key));
+  if (cachedRubric) {
+    safeStore(() => store.recordHit("rubric", key));
     return {
-      rubric: jobRubricCache.get(key).rubric,
+      rubric: cachedRubric,
       usage: null,
       cached: true,
     };
@@ -160,27 +214,43 @@ async function getJobRubric(job, signal) {
     SCORING.JOB_RUBRIC_SYSTEM_PROMPT,
     SCORING.buildJobRubricUserPrompt(job),
     3500,
+    "job_rubric",
+    null,
     signal,
   );
   const rubric = SCORING.normalizeJobRubric(raw, job);
-  if (jobRubricCache.size >= MAX_CACHE_ENTRIES) {
-    jobRubricCache.delete(jobRubricCache.keys().next().value);
-  }
-  jobRubricCache.set(key, { rubric });
+  safeStore(() =>
+    store.setRubric(key, rubric, {
+      model: MODEL,
+      protocolVersion: SCORING.PROTOCOL_VERSION,
+      promptFingerprint: SCORING.PROMPT_FINGERPRINT,
+      jobHash: hashText(SCORING.canonicalizeText(job)),
+    }),
+  );
   return { rubric, usage, cached: false };
 }
 
-async function createDeepSeekAnalysis(resume, job) {
+async function createDeepSeekAnalysis(
+  resume,
+  job,
+  onStage = () => {},
+  cacheKey = null,
+) {
+  onStage(STAGE_RUBRIC);
   const rubricResult = await getJobRubric(job);
+  onStage(STAGE_EVIDENCE);
   const resumeResult = await callDeepSeekJson(
     SCORING.RESUME_EVIDENCE_SYSTEM_PROMPT,
     SCORING.buildResumeEvidenceUserPrompt(resume, rubricResult.rubric),
     7000,
+    "resume_evidence",
+    cacheKey,
   );
   const resumeData = SCORING.normalizeResumeEvidence(
     resumeResult.raw,
     rubricResult.rubric,
   );
+  onStage(STAGE_SCORING);
   return {
     rubric: rubricResult.rubric,
     resumeData,
@@ -204,62 +274,166 @@ function sendJson(response, status, payload) {
   response.end(body);
 }
 
-async function handleAnalyze(request, response) {
-  if (!API_KEY) {
-    sendJson(response, 503, {
-      error: "DEEPSEEK_API_KEY尚未配置，请填写.env.local后重启本地服务。",
-      code: "missing_api_key",
-    });
-    return;
-  }
+function startSse(response) {
+  response.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  const heartbeat = setInterval(() => {
+    response.write(": ping\n\n");
+  }, 10_000);
+  return {
+    send(event, payload) {
+      response.write(encodeSseEvent(event, payload));
+    },
+    close() {
+      clearInterval(heartbeat);
+      response.end();
+    },
+  };
+}
 
+function analysisResponse({
+  analysis,
+  usage,
+  cached,
+  rubricCached,
+  createdAt,
+}) {
+  return {
+    analysis,
+    model: MODEL_DISPLAY_NAME,
+    modelAlias: MODEL,
+    usage,
+    cached,
+    rubricCached,
+    protocolVersion: SCORING.PROTOCOL_VERSION,
+    promptFingerprint: SCORING.PROMPT_FINGERPRINT,
+    createdAt: createdAt || new Date().toISOString(),
+  };
+}
+
+async function handleForget(request, response) {
   try {
-    const { resume, job } = await getJsonBody(request);
-    if (typeof resume !== "string" || typeof job !== "string" || !resume.trim() || !job.trim()) {
-      sendJson(response, 400, { error: "简历和岗位内容不能为空。" });
-      return;
-    }
-
-    const normalizedResume = resume.trim();
-    const normalizedJob = job.trim();
-    const cacheKey = createHash("sha256")
-      .update(
-        `${SCORING.PROTOCOL_VERSION}\n${MODEL}\n${normalizedResume}\n${normalizedJob}`,
-      )
-      .digest("hex");
-
-    if (analysisCache.has(cacheKey)) {
-      const cached = analysisCache.get(cacheKey);
-      sendJson(response, 200, {
-        analysis: cached.analysis,
-        model: MODEL_DISPLAY_NAME,
-        modelAlias: MODEL,
-        usage: cached.usage,
-        cached: true,
-        rubricCached: true,
+    const { resume, job } = await getJsonBody(request, 50_000);
+    if (
+      typeof resume !== "string" ||
+      typeof job !== "string" ||
+      !resume.trim() ||
+      !job.trim()
+    ) {
+      sendJson(response, 400, {
+        error: "需要提供简历和岗位原文才能定位并删除对应记录。",
       });
       return;
     }
 
-    const { analysis, usage, rubricCached } = await createDeepSeekAnalysis(
+    const cacheKey = hashText(
+      SCORING.buildAnalysisCacheKeyInput({ model: MODEL, resume, job }),
+    );
+    const deleted = safeStore(() => store.deleteAnalysis(cacheKey), false);
+    sendJson(response, 200, { deleted: Boolean(deleted) });
+  } catch (error) {
+    sendJson(response, 400, {
+      error: "删除请求无法处理。",
+      detail: String(error.message || error).slice(0, 200),
+    });
+  }
+}
+
+async function handleAnalyze(request, response) {
+  let sse = null;
+  const fail = (status, payload) => {
+    if (sse) {
+      sse.send("error", payload);
+      sse.close();
+      sse = null;
+      return;
+    }
+    sendJson(response, status, payload);
+  };
+
+  try {
+    const { resume, job, fresh, stream } = await getJsonBody(request);
+
+    if (typeof resume !== "string" || typeof job !== "string" || !resume.trim() || !job.trim()) {
+      fail(400, { error: "简历和岗位内容不能为空。" });
+      return;
+    }
+    if (!API_KEY) {
+      fail(503, {
+        error: "DEEPSEEK_API_KEY尚未配置，请填写.env.local后重启本地服务。",
+        code: "missing_api_key",
+      });
+      return;
+    }
+
+    if (stream === true) {
+      sse = startSse(response);
+    }
+
+    const normalizedResume = SCORING.canonicalizeText(resume);
+    const normalizedJob = SCORING.canonicalizeText(job);
+    const cacheKey = hashText(
+      SCORING.buildAnalysisCacheKeyInput({ model: MODEL, resume, job }),
+    );
+    const bypassCache = fresh === true || fresh === 1 || fresh === "1";
+
+    if (!bypassCache) {
+      const cached = safeStore(() => store.getAnalysis(cacheKey));
+      if (cached) {
+        safeStore(() => store.recordHit("analysis", cacheKey));
+        const payload = analysisResponse({ ...cached, cached: true });
+        if (sse) {
+          sse.send("stage", { stage: "cache" });
+          sse.send("done", { payload });
+          sse.close();
+          sse = null;
+        } else {
+          sendJson(response, 200, payload);
+        }
+        return;
+      }
+    }
+
+    const result = await createDeepSeekAnalysis(
       normalizedResume,
       normalizedJob,
+      (stage) => {
+        if (sse) sse.send("stage", { stage });
+      },
+      cacheKey,
     );
-    if (analysisCache.size >= MAX_CACHE_ENTRIES) {
-      analysisCache.delete(analysisCache.keys().next().value);
+    safeStore(() =>
+      store.setAnalysis(
+        cacheKey,
+        {
+          analysis: result.analysis,
+          usage: result.usage,
+          rubricCached: result.rubricCached,
+        },
+        {
+          model: MODEL,
+          protocolVersion: SCORING.PROTOCOL_VERSION,
+          promptFingerprint: SCORING.PROMPT_FINGERPRINT,
+          resumeHash: hashText(normalizedResume),
+          jobHash: hashText(normalizedJob),
+        },
+      ),
+    );
+    const payload = analysisResponse({ ...result, cached: false });
+    if (sse) {
+      sse.send("done", { payload });
+      sse.close();
+      sse = null;
+    } else {
+      sendJson(response, 200, payload);
     }
-    analysisCache.set(cacheKey, { analysis, usage, rubricCached });
-    sendJson(response, 200, {
-      analysis,
-      model: MODEL_DISPLAY_NAME,
-      modelAlias: MODEL,
-      usage,
-      cached: false,
-      rubricCached,
-    });
   } catch (error) {
     console.error("DeepSeek analysis failed:", error);
-    sendJson(response, 502, {
+    fail(502, {
       error: "DeepSeek分析失败，请检查模型、网络或API额度后重试。",
       detail: String(error.message || error).slice(0, 300),
     });
@@ -289,7 +463,13 @@ async function serveStatic(request, response) {
       (segment) =>
         segment === ".env" ||
         segment === ".env.local" ||
-        segment === "config.local.js",
+        segment === "config.local.js" ||
+        segment.endsWith(".db") ||
+        segment.endsWith(".db-wal") ||
+        segment.endsWith(".db-shm") ||
+        segment.endsWith(".sqlite") ||
+        segment.endsWith(".sqlite-wal") ||
+        segment.endsWith(".sqlite-shm"),
     );
 
   if (blocked || !existsSync(filePath)) {
@@ -329,7 +509,7 @@ async function handleInterview(request, response, operation) {
   try {
     const result = await operation(body, {
       getRubric: (job) => getJobRubric(job, signal),
-      generate: (prompt, input, maxTokens) => callDeepSeekJson(prompt, input, maxTokens, signal),
+      generate: (prompt, input, maxTokens) => callDeepSeekJson(prompt, input, maxTokens, null, null, signal),
     });
     sendJson(response, 200, result);
   } catch (error) {
@@ -344,7 +524,14 @@ async function handleInterview(request, response, operation) {
 }
 
 export function createApplicationServer() {
-  return createServer(async (request, response) => {
+  const purged = safeStore(() => store.purgeOlderThan(CACHE_TTL_DAYS), 0);
+  if (purged > 0) {
+    console.log(
+      `已清理 ${purged} 条超过 ${CACHE_TTL_DAYS} 天的分析缓存。`,
+    );
+  }
+
+  const server = createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/api/status") {
       sendJson(response, 200, {
         configured: Boolean(API_KEY),
@@ -353,6 +540,10 @@ export function createApplicationServer() {
         modelAlias: MODEL,
         baseUrl: BASE_URL,
         protocolVersion: SCORING.PROTOCOL_VERSION,
+        promptFingerprint: SCORING.PROMPT_FINGERPRINT,
+        storage: "sqlite",
+        cacheFile: CACHE_DB.replace(ROOT, ".").replace(/\\/g, "/"),
+        cacheTtlDays: CACHE_TTL_DAYS,
       });
       return;
     }
@@ -372,6 +563,11 @@ export function createApplicationServer() {
       return;
     }
 
+    if (request.method === "POST" && request.url === "/api/forget") {
+      await handleForget(request, response);
+      return;
+    }
+
     if (request.method === "GET" || request.method === "HEAD") {
       await serveStatic(request, response);
       return;
@@ -380,6 +576,11 @@ export function createApplicationServer() {
     response.writeHead(405);
     response.end("Method not allowed");
   });
+
+  server.on("close", () => {
+    safeStore(() => store.close());
+  });
+  return server;
 }
 
 const isMain =
@@ -393,7 +594,7 @@ if (isMain) {
     console.log(`模型：${MODEL_DISPLAY_NAME}（API别名：${MODEL}）`);
     console.log(`评分协议：${SCORING.PROTOCOL_VERSION}`);
     console.log(
-      `API密钥：${API_KEY ? "已配置" : "未配置，将自动使用模拟结果"}（${
+      `API密钥：${API_KEY ? "已配置" : "未配置，网页将回退到模拟结果"}（${
         localEnvironment.loaded ? ".env.local" : "进程环境变量"
       }）`,
     );

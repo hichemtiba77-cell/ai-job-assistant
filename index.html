@@ -174,8 +174,8 @@
               </button>
             </div>
             <div class="future-note pdf-privacy-note">
-              <span>仅本机</span>
-              简历文件在当前浏览器中处理，不会上传到文件存储服务。
+              <span>本地解析</span>
+              PDF 在当前浏览器中解析；提取出的文字会随岗位要求发送给分析服务，但不会上传到文件存储。
             </div>
           </article>
 
@@ -218,6 +218,43 @@
             <span class="button-label">生成求职诊断报告</span>
             <span class="button-arrow" aria-hidden="true">→</span>
           </button>
+          <label class="consent-check">
+            <input id="consentCheckbox" type="checkbox" />
+            <span>
+              我已阅读
+              <a href="./privacy.html" target="_blank" rel="noopener">隐私与数据说明</a>
+              ，同意将简历和岗位文字发送给分析服务。
+            </span>
+          </label>
+          <label class="fresh-toggle">
+            <input id="freshToggle" type="checkbox" />
+            <span>
+              忽略缓存，强制重新分析
+              <small>相同材料会复用上次结果；勾选后会重新调用模型并产生费用</small>
+            </span>
+          </label>
+          <div
+            class="analysis-progress"
+            id="analysisProgress"
+            aria-live="polite"
+            hidden
+          >
+            <div class="progress-head">
+              <strong id="progressTitle">正在分析简历与岗位</strong>
+              <span id="progressElapsed">0.0 秒</span>
+            </div>
+            <ol class="progress-steps" id="progressSteps">
+              <li data-stage="request"><span>1</span>连接分析服务</li>
+              <li data-stage="rubric"><span>2</span>读取并锁定岗位评分表</li>
+              <li data-stage="evidence"><span>3</span>逐条核对简历证据</li>
+              <li data-stage="scoring"><span>4</span>计算维度分与匹配分</li>
+              <li data-stage="done"><span>5</span>生成诊断报告</li>
+            </ol>
+            <p class="progress-note" id="progressNote"></p>
+            <button class="progress-retry" id="retryButton" type="button" hidden>
+              重试
+            </button>
+          </div>
         </section>
 
         <p class="form-message" id="formMessage" role="alert" aria-live="polite"></p>
@@ -225,7 +262,10 @@
 
       <footer class="site-footer">
         <span>AI求职助手 · 郑州大学首届AI智能体创新应用大赛</span>
-        <span>岗位证据核对 · 求职准备参考</span>
+        <span>
+          <a href="./privacy.html">隐私与数据说明</a>
+          · 岗位证据核对 · 求职准备参考
+        </span>
       </footer>
     </div>
 

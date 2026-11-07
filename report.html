@@ -24,6 +24,9 @@
         </a>
         <div class="report-nav-actions">
           <span class="source-badge" id="sourceBadge">载入中</span>
+          <button class="back-button is-danger" id="forgetButton" type="button">
+            删除本次记录
+          </button>
           <a class="report-action report-action-secondary" href="./index.html">← 返回修改材料</a>
         </div>
       </header>
@@ -59,6 +62,11 @@
           </article>
           <p id="summaryText"></p>
         </section>
+
+        <div class="hard-gate-banner" id="hardGateBanner" role="alert" hidden>
+          <strong>硬性门槛未通过</strong>
+          <p id="hardGateBannerText"></p>
+        </div>
 
         <div class="diagnosis-notice" id="diagnosisNotice" role="status" hidden></div>
 
@@ -151,6 +159,10 @@
               </article>
               <div class="dimension-grid" id="dimensionGrid"></div>
             </div>
+            <details class="scoring-detail" id="scoringDetail">
+              <summary>评分明细与复现信息</summary>
+              <div id="scoringBreakdown"></div>
+            </details>
           </section>
 
           <section
@@ -245,7 +257,11 @@
 
       <footer class="site-footer">
         <span>职引者 · 郑州大学首届AI智能体创新应用大赛</span>
-        <span id="modelLabel">本地演示</span>
+        <span>
+          <a href="./privacy.html">隐私与数据说明</a>
+          ·
+          <span id="modelLabel">本地演示</span>
+        </span>
       </footer>
     </div>
 

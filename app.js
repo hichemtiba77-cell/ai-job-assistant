@@ -19,13 +19,100 @@
   const formMessage = document.querySelector("#formMessage");
   const modeTitle = document.querySelector("#modeTitle");
   const modeDescription = document.querySelector("#modeDescription");
+  const freshToggle = document.querySelector("#freshToggle");
+  const consentCheckbox = document.querySelector("#consentCheckbox");
+  const analysisProgress = document.querySelector("#analysisProgress");
+  const progressTitle = document.querySelector("#progressTitle");
+  const progressElapsed = document.querySelector("#progressElapsed");
+  const progressNote = document.querySelector("#progressNote");
+  const progressSteps = Array.from(
+    document.querySelectorAll("#progressSteps li"),
+  );
+  const retryButton = document.querySelector("#retryButton");
+  const STAGE_ORDER = ["request", "rubric", "evidence", "scoring", "done"];
   let selectedPdf = null;
   let lastPastedResume = "";
+  let progressTimer = null;
+  let progressStartedAt = 0;
 
   function setMessage(message, tone = "error") {
     formMessage.textContent = message;
     formMessage.classList.toggle("is-success", tone === "success");
     formMessage.classList.toggle("is-info", tone === "info");
+  }
+
+  function setProgressStage(stage) {
+    const active = STAGE_ORDER.indexOf(stage);
+    progressSteps.forEach((item, index) => {
+      item.classList.toggle("is-done", index < active);
+      item.classList.toggle("is-active", index === active);
+      item.classList.remove("is-error");
+    });
+  }
+
+  function startProgress() {
+    window.clearInterval(progressTimer);
+    analysisProgress.hidden = false;
+    analysisProgress.classList.remove("is-error");
+    progressTitle.textContent = "正在分析简历与岗位";
+    progressNote.textContent = "";
+    retryButton.hidden = true;
+    progressStartedAt = Date.now();
+    progressElapsed.textContent = "0.0 秒";
+    progressTimer = window.setInterval(() => {
+      const seconds = (Date.now() - progressStartedAt) / 1000;
+      progressElapsed.textContent = `${seconds.toFixed(1)} 秒`;
+    }, 100);
+    setProgressStage("request");
+  }
+
+  function stopProgressTimer() {
+    window.clearInterval(progressTimer);
+    progressTimer = null;
+    const seconds = (Date.now() - progressStartedAt) / 1000;
+    progressElapsed.textContent = `${seconds.toFixed(1)} 秒`;
+  }
+
+  function finishProgress(note) {
+    stopProgressTimer();
+    progressSteps.forEach((item) => {
+      item.classList.add("is-done");
+      item.classList.remove("is-active", "is-error");
+    });
+    progressTitle.textContent = "分析完成，正在打开报告";
+    progressNote.textContent = note || "";
+  }
+
+  function failProgress(message) {
+    stopProgressTimer();
+    analysisProgress.classList.add("is-error");
+    progressTitle.textContent = "分析失败";
+    progressSteps.forEach((item) => {
+      if (item.classList.contains("is-active")) {
+        item.classList.add("is-error");
+      }
+      item.classList.remove("is-active");
+    });
+    progressNote.textContent = message;
+    retryButton.hidden = false;
+  }
+
+  function handleProgressEvent(data) {
+    if (!data || typeof data.stage !== "string") return;
+    if (data.stage === "cache") {
+      stopProgressTimer();
+      progressSteps.forEach((item) => {
+        item.classList.add("is-done");
+        item.classList.remove("is-active");
+      });
+      progressNote.textContent =
+        "命中历史缓存：相同简历和岗位复用了上次结果，本次没有再次调用模型。";
+      return;
+    }
+    if (STAGE_ORDER.includes(data.stage)) {
+      setProgressStage(data.stage);
+      progressNote.textContent = "";
+    }
   }
 
   function updateCount(input, target) {
@@ -140,18 +227,92 @@
     };
   }
 
-  async function requestDeepSeek(resume, job) {
+  async function readAnalysisStream(response, onProgress) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let payload = null;
+    let streamError = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary >= 0) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        boundary = buffer.indexOf("\n\n");
+
+        if (!frame.trim() || frame.startsWith(":")) continue;
+        let event = "message";
+        const dataLines = [];
+        frame.split("\n").forEach((line) => {
+          if (line.startsWith("event:")) {
+            event = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).trim());
+          }
+        });
+        if (!dataLines.length) continue;
+
+        let data;
+        try {
+          data = JSON.parse(dataLines.join("\n"));
+        } catch {
+          continue;
+        }
+        if (event === "stage") {
+          if (typeof onProgress === "function") onProgress(data);
+        } else if (event === "error") {
+          streamError = data;
+        } else if (event === "done") {
+          payload = data.payload;
+        }
+      }
+    }
+
+    if (streamError) {
+      const error = new Error(streamError.error || "分析失败，请重试。");
+      error.code = streamError.code;
+      error.detail = streamError.detail;
+      throw error;
+    }
+    if (!payload) {
+      throw new Error("分析连接中断，请重试。");
+    }
+    return payload;
+  }
+
+  async function requestDeepSeek(resume, job, options = {}) {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 75_000);
+    const timeout = window.setTimeout(() => controller.abort(), 150_000);
 
     try {
+      const streamDisabled =
+        new URLSearchParams(window.location.search).get("stream") === "0";
+      const onProgress =
+        !streamDisabled && typeof options.onProgress === "function"
+          ? options.onProgress
+          : null;
+      const body = { resume, job };
+      if (options.fresh) body.fresh = true;
+      if (onProgress) body.stream = true;
+
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume, job }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
-      const data = await response.json().catch(() => ({}));
+      const contentType = response.headers.get("content-type") || "";
+      let data;
+      if (contentType.includes("text/event-stream")) {
+        data = await readAnalysisStream(response, onProgress || (() => {}));
+      } else {
+        data = await response.json().catch(() => ({}));
+      }
 
       if (!response.ok) {
         const error = new Error(
@@ -172,15 +333,27 @@
           cached: Boolean(data.cached),
           rubricCached: Boolean(data.rubricCached),
           usage: data.usage || null,
+          protocolVersion: data.protocolVersion || null,
+          promptFingerprint: data.promptFingerprint || null,
+          generatedAt: data.createdAt || null,
         },
       };
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error("分析等待时间过长，请重试。");
+      }
+      throw error;
     } finally {
       window.clearTimeout(timeout);
     }
   }
 
-  async function requestBrowserDeepSeek(resume, job) {
-    const result = await window.AIJobAssistantBrowserApi.requestDirect(resume, job);
+  async function requestBrowserDeepSeek(resume, job, options = {}) {
+    const result = await window.AIJobAssistantBrowserApi.requestDirect(
+      resume,
+      job,
+      options,
+    );
     return {
       analysis: result.analysis,
       meta: {
@@ -188,6 +361,9 @@
         cached: Boolean(result.cached),
         rubricCached: Boolean(result.rubricCached),
         usage: result.usage || null,
+        protocolVersion: result.protocolVersion || null,
+        promptFingerprint: result.promptFingerprint || null,
+        generatedAt: result.createdAt || null,
       },
     };
   }
@@ -199,21 +375,25 @@
     };
   }
 
-  async function analyzeResumeText(resume, job) {
+  async function analyzeResumeText(resume, job, options = {}) {
     const isWeb = location.protocol === "http:" || location.protocol === "https:";
     const canConnectDirectly = window.AIJobAssistantBrowserApi.hasDirectConfig();
 
     if (isWeb) {
       try {
-        return await requestDeepSeek(resume, job);
+        return await requestDeepSeek(resume, job, options);
       } catch (serverError) {
+        if (serverError.code === "missing_api_key") {
+          await new Promise((resolve) => window.setTimeout(resolve, 650));
+          return buildDemoResult(resume, job, "未配置 DeepSeek 密钥");
+        }
         if (!canConnectDirectly) throw serverError;
         console.warn("本地服务不可用，切换浏览器测试直连：", serverError);
       }
     }
 
     if (canConnectDirectly) {
-      return requestBrowserDeepSeek(resume, job);
+      return requestBrowserDeepSeek(resume, job, options);
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, 650));
@@ -264,13 +444,22 @@
     if (!validate(resume, job)) {
       return;
     }
+    if (!consentCheckbox?.checked) {
+      setMessage("请先阅读并勾选同意《隐私与数据说明》，再开始诊断。");
+      consentCheckbox?.focus();
+      return;
+    }
 
     analyzeButton.disabled = true;
     analyzeButton.classList.add("is-loading");
     analyzeButton.querySelector(".button-label").textContent = "正在生成求职诊断";
+    startProgress();
 
     try {
-      const result = await analyzeResumeText(resume, job);
+      const result = await analyzeResumeText(resume, job, {
+        fresh: Boolean(freshToggle?.checked),
+        onProgress: handleProgressEvent,
+      });
       sessionStorage.setItem(INPUT_KEY, JSON.stringify({ resume, job }));
       sessionStorage.setItem(
         DIAGNOSIS_KEY,
@@ -280,6 +469,12 @@
           meta: result.meta,
         }),
       );
+      finishProgress(
+        result.meta?.cached
+          ? "命中历史缓存：复用了上次的相同结果，本次没有再次调用模型。"
+          : "分析完成，正在打开诊断报告。",
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       const requestedTab = new URLSearchParams(window.location.search).get("tab");
       window.location.assign(
         requestedTab
@@ -288,9 +483,10 @@
       );
     } catch (error) {
       console.error(error);
-      setMessage(
-        error.message || "诊断报告生成失败，请重试或检查网络是否正常。",
-      );
+      const message =
+        error.message || "诊断报告生成失败，请重试或检查网络是否正常。";
+      setMessage(message);
+      failProgress(message);
       resetAnalyzeButton();
     }
   }
@@ -343,6 +539,10 @@
   });
   jobInput.addEventListener("input", () => updateCount(jobInput, jobCount));
   analyzeButton.addEventListener("click", handleAnalyze);
+  retryButton.addEventListener("click", () => {
+    retryButton.hidden = true;
+    handleAnalyze();
+  });
   resumePdf.addEventListener("change", () => {
     preparePdf(resumePdf.files?.[0]);
   });

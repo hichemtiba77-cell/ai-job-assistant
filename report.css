@@ -579,3 +579,117 @@
 #interviewEntry[hidden] {
   display: none;
 }
+
+.report-nav-actions .back-button.is-danger:not([hidden]) {
+  display: inline-flex;
+}
+
+.back-button.is-danger {
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #b91c1c;
+  background: #fff5f5;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.back-button.is-danger:hover {
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.back-button.is-danger:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.hard-gate-banner {
+  margin-top: 18px;
+  padding: 18px 22px;
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  color: #7f1d1d;
+  background: #fff5f5;
+}
+
+.hard-gate-banner strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.hard-gate-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.scoring-detail {
+  margin-top: 22px;
+  padding: 18px 22px;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.scoring-detail summary {
+  color: var(--ink, #0f172a);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.scoring-detail[open] summary {
+  margin-bottom: 14px;
+}
+
+.scoring-formula {
+  margin: 12px 0;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.repro-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px dashed #dbe4f0;
+}
+
+.repro-info div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.repro-info dt {
+  color: var(--muted, #64748b);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.repro-info dd {
+  margin: 0;
+  color: var(--ink, #0f172a);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.dimension-weight {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted, #64748b);
+  font-size: 10px;
+}
+
+@media (max-width: 640px) {
+  .report-nav-actions {
+    flex-wrap: wrap;
+  }
+}
