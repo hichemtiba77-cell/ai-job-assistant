@@ -10,9 +10,10 @@
     <title>职引者 · 郑大校园求职</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./lake-workspace.css" />
+    <link rel="stylesheet" href="./account.css" />
   </head>
   <body class="lake-page lake-materials">
-    <div class="lake-workspace">
+    <div class="lake-workspace" data-auth-workspace hidden>
       <aside class="lake-rail" aria-label="职引者和求职准备流程">
         <a class="brand" href="./index.html" aria-label="职引者首页">
           <span class="brand-mark" aria-hidden="true">职</span>
@@ -22,6 +23,7 @@
           <h1 id="page-title">从郑大出发，找到适合你的岗位</h1>
           <p>上传简历、核对岗位要求，再练三道岗位面试题。</p>
         </div>
+        <a class="lake-rail-action account-link" href="./history.html">我的档案</a>
         <ol class="journey-steps" aria-label="求职诊断流程">
           <li>
             <span>01</span>
@@ -110,6 +112,12 @@
               <span>本地解析</span>
               PDF 在当前浏览器中解析；提取出的文字会随岗位要求发送给分析服务，但不会上传到文件存储。
             </div>
+            <form class="archive-save" id="resumeArchive" hidden>
+              <label>简历名称 <input name="title" maxlength="100" required placeholder="例如：产品实习简历" /></label>
+              <p class="archive-meta" data-archive-hint>将当前简历文字保存到「我的档案」。</p>
+              <button class="primary-button" type="submit">保存简历</button>
+              <p class="account-message" role="status"></p>
+            </form>
           </article>
 
           <article class="input-card">
@@ -210,6 +218,8 @@
     <script src="./browser-api.js"></script>
     <script src="./data/examples.js"></script>
     <script src="./analysis-core.js"></script>
-    <script src="./app.js"></script>
+    <script src="./vendor/supabase/supabase.js" defer></script>
+    <script src="./cloud.js" defer></script>
+    <script src="./app.js" defer></script>
   </body>
 </html>

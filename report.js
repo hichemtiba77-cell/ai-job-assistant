@@ -1,8 +1,11 @@
-(function () {
+(async function () {
   "use strict";
 
   const STORAGE_KEY = "aijob:diagnosis:v1";
-  const payload = readPayload();
+  const cloud = window.CareerCloud;
+  const signedInUser = (await cloud?.requireSession())?.user;
+  if (!signedInUser) return;
+  const reportId = new URLSearchParams(location.search).get("id");
   const tabs = Array.from(document.querySelectorAll("[data-tab]"));
   const panels = Array.from(document.querySelectorAll("[data-panel]"));
 
@@ -46,6 +49,7 @@
     document.querySelector("#diagnosisNotice").hidden = true;
     document.querySelector("#hardGateBanner").hidden = true;
     document.querySelector("#interviewEntry").hidden = true;
+    document.querySelector("#reportArchive").hidden = true;
     document.querySelector("#forgetButton").hidden = true;
     document.querySelector("#reportEmpty").hidden = false;
     const sourceBadge = document.querySelector("#sourceBadge");
@@ -425,6 +429,19 @@
 
   async function handleForgetRecord() {
     const button = document.querySelector("#forgetButton");
+    if (reportId) {
+      if (!window.confirm("删除云端的这份诊断报告？简历版本会保留。")) return;
+      button.disabled = true;
+      try {
+        const rows = cloud.value(await cloud.client.from("analysis_reports").delete().eq("id", reportId).select("id"));
+        if (rows.length !== 1) throw new Error("Unavailable report");
+        location.replace("./history.html");
+      } catch {
+        button.disabled = false;
+        window.alert("暂时无法删除，请检查网络后重试。");
+      }
+      return;
+    }
     const confirmed = window.confirm(
       "将删除本机缓存中的本次分析记录，并清空当前标签页中的报告和模拟面试。此操作不可撤销，是否继续？",
     );
@@ -483,11 +500,65 @@
     .querySelector("#forgetButton")
     .addEventListener("click", handleForgetRecord);
 
+  let payload;
+  try {
+    payload = reportId ? await cloud.readReport(reportId) : readPayload();
+    const ownerId = payload?.archive?.ownerId || payload?.ownerId;
+    if ((reportId && !payload) || (ownerId && ownerId !== signedInUser.id)) {
+      throw new Error("Unavailable report");
+    }
+  } catch {
+    showEmptyState();
+    const empty = document.querySelector("#reportEmpty");
+    empty.querySelector("h1").textContent = "无法打开这份报告";
+    empty.querySelector("p").textContent = "请确认登录的是保存这份报告的账号，再从「我的档案」重试。";
+    empty.querySelector("a").href = "./history.html";
+    empty.querySelector("a").textContent = "打开我的档案";
+    return;
+  }
+
   if (!payload?.analysis) {
     showEmptyState();
     return;
   }
 
   render(payload);
-  document.querySelector("#interviewEntry").hidden = !payload.input?.job;
+  const interview = document.querySelector("#interviewEntry");
+  interview.hidden = !payload.input?.job;
+  if (reportId) {
+    document.querySelector("#reportBack").href = `./index.html?version=${encodeURIComponent(payload.archive.versionId)}`;
+    document.querySelector("#sourceBadge").textContent = "云端已保存";
+    interview.querySelector("a").href = `./interview.html?id=${encodeURIComponent(reportId)}`;
+    return;
+  }
+  if (!payload.input?.resume || !payload.input?.job) return;
+
+  const form = document.querySelector("#reportArchive");
+  const { archive, input, analysis, meta } = payload;
+  const source = payload.source || "manual";
+  const newReportId = payload.reportId || crypto.randomUUID();
+  const sameVersion = archive?.content === input.resume && archive.source === source;
+  const resumeId = archive?.resumeId || newReportId;
+  const versionId = sameVersion ? archive.versionId : newReportId;
+
+  cloud.updateSaveForm(form, archive);
+  cloud.attachSaveForm(form, {
+    prepare(title, user) {
+      if (user && user.id !== signedInUser.id) throw new Error("Account changed");
+      return {
+        resumeId, versionId, title: archive ? null : title, content: input.resume, source,
+        reportId: newReportId, job: input.job, result: { analysis, meta },
+      };
+    },
+    login(record) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...payload, ownerId: signedInUser.id, reportId: newReportId, archiveTitle: record.title,
+      }));
+    },
+    saved() {
+      sessionStorage.removeItem(STORAGE_KEY);
+      location.replace(`./report.html?id=${encodeURIComponent(newReportId)}`);
+    },
+  });
+  if (payload.archiveTitle) form.elements.title.value = payload.archiveTitle;
 })();

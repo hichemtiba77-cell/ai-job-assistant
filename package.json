@@ -14,5 +14,8 @@
     "eval:baseline": "node tools/eval-baseline.mjs",
     "configure-browser": "node tools/generate-browser-config.mjs",
     "check-balance": "node tools/check_deepseek_balance.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.0"
   }
 }

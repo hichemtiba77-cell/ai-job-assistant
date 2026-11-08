@@ -31,7 +31,7 @@ GitHub仓库创建、邀请队友、分支和Pull Request规则见：
 - 支持本地服务调用DeepSeek，也支持双击`index.html`的测试直连模式。
 - 硬性条件明确不满足时，综合分按规则封顶44分，并保留原始证据分供核对。
 - 分析前需阅读并同意《隐私与数据说明》；报告页可一键删除本次缓存记录。
-- 暂不部署，不接账号；分析结果使用本地SQLite缓存，不作为用户数据库。
+- 网页已接入独立的 Supabase 项目。登录后可主动保存简历版本和诊断报告。
 - 当前读取PDF文字层；扫描图片型PDF需要先转换为可复制文字的PDF，或改用粘贴。
 
 ## 查看方式
@@ -39,6 +39,8 @@ GitHub仓库创建、邀请队友、分支和Pull Request规则见：
 ### 双击打开（队友测试）
 
 直接双击根目录中的 `index.html`。项目内的 `config.local.js` 目前保留占位配置；填入真实密钥后，上传PDF并填写岗位即可使用DeepSeek。
+
+没有登录时会先打开全屏账号页。双击模式可在 Chrome 或 Edge 中联网登录并使用云端档案，登录会话保留在当前标签页。浏览器 SDK 随项目提供在 `vendor/supabase/`。
 
 `config.local.js` 已加入 `.gitignore`，不会进入Git。填写真实密钥后，只应通过私密压缩包发给参与本轮测试的队友，不要发到公开群、公开仓库或部署到公网。
 
@@ -79,6 +81,17 @@ http://127.0.0.1:3000
 服务会优先使用`.env.local`中的密钥。即使电脑系统里已经存在另一个`DEEPSEEK_API_KEY`，项目也会用`.env.local`中的值覆盖它，避免调用到旧账号。
 
 本地服务不会对外提供 `.env.local` 或 `config.local.js`。
+
+### 账号与云端档案
+
+打开网站后先登录，或用邮箱注册并输入验证码。进入工作区后，首页可保存简历文字，报告页可保存诊断结果和对应的简历版本。「我的档案」可查看、继续修改和删除这些记录。
+
+1. 在求职助手项目中启用[自定义 SMTP](https://supabase.com/docs/guides/auth/auth-smtp)，填写服务商提供的发件地址、主机、端口、用户名和密码。新建 Free 项目需要先启用自定义 SMTP 才能编辑邮件模板。 [Supabase 变更说明](https://supabase.com/changelog/46599-changes-to-email-template-customisation-on-free-tier)
+2. 打开 [Sign In / Providers](https://supabase.com/dashboard/project/smdqrjqxmyzvsgmpjrzp/auth/providers)，开启 **Allow new users to sign up**，在 **Email** 中开启 **Confirm email**。
+3. 打开[邮件模板](https://supabase.com/dashboard/project/smdqrjqxmyzvsgmpjrzp/auth/templates)，把 **Confirm sign up** 正文设为 `<p>你的职引者注册验证码是 <strong>{{ .Token }}</strong>。</p>`，保存。
+4. 把 **Reset password** 正文设为 `<p>你的职引者密码重置验证码是 <strong>{{ .Token }}</strong>。</p>`，保存。
+
+用户在账号页输入验证码完成验证，双击模式可以直接使用现有的 Site URL。
 
 查询当前账户余额：
 

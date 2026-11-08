@@ -1,7 +1,18 @@
-(function () {
+(async function () {
   "use strict";
 
   const INPUT_KEY = "aijob:input:v1";
+  const cloud = window.CareerCloud;
+  const params = new URLSearchParams(location.search);
+  if (cloud && params.get("account") === "1") {
+    location.replace(cloud.loginUrl(cloud.safeNext(params.get("next"))));
+    return;
+  }
+  const signedInUser = (await cloud?.requireSession())?.user;
+  if (!signedInUser) return;
+  let archive;
+  let pendingSave;
+  let restoredUpload;
   const DIAGNOSIS_KEY = "aijob:diagnosis:v1";
   const resumeInput = document.querySelector("#resumeText");
   const jobInput = document.querySelector("#jobText");
@@ -441,6 +452,10 @@
 
     const resume = selectedPdf?.text || resumeInput.value.trim();
     const job = jobInput.value.trim();
+    const archiveAtStart = archive;
+    const source = selectedPdf?.text || restoredUpload === resume
+      ? "upload"
+      : archiveAtStart?.content === resume ? archiveAtStart.source : "manual";
     if (!validate(resume, job)) {
       return;
     }
@@ -460,13 +475,19 @@
         fresh: Boolean(freshToggle?.checked),
         onProgress: handleProgressEvent,
       });
-      sessionStorage.setItem(INPUT_KEY, JSON.stringify({ resume, job }));
+      sessionStorage.setItem(INPUT_KEY, JSON.stringify({
+        resume, job, archive: archiveAtStart, source, ownerId: signedInUser.id,
+      }));
       sessionStorage.setItem(
         DIAGNOSIS_KEY,
         JSON.stringify({
           input: { resume, job },
           analysis: result.analysis,
           meta: result.meta,
+          archive: archiveAtStart,
+          source,
+          ownerId: signedInUser.id,
+          reportId: crypto.randomUUID(),
         }),
       );
       finishProgress(
@@ -491,16 +512,22 @@
     }
   }
 
-  function restoreInputs() {
+  function restoreInputs(userId, startNew = false) {
     try {
       const saved = JSON.parse(sessionStorage.getItem(INPUT_KEY) || "null");
-      if (saved?.resume && saved?.job) {
-        resumeInput.value = saved.resume;
-        jobInput.value = saved.job;
-        lastPastedResume = saved.resume;
+      const hasDraft = typeof saved?.resume === "string" || typeof saved?.job === "string";
+      if (!startNew && hasDraft && (!saved.ownerId || saved.ownerId === userId) &&
+          (!saved.archive || saved.archive.ownerId === userId)) {
+        resumeInput.value = saved.resume || "";
+        jobInput.value = saved.job || "";
+        archive = saved.archive;
+        if (saved.source === "upload") restoredUpload = saved.resume;
+        if (saved.title) document.querySelector("#resumeArchive").elements.title.value = saved.title;
+        lastPastedResume = resumeInput.value;
+        if (typeof saved.consent === "boolean") consentCheckbox.checked = saved.consent;
         updateCount(resumeInput, resumeCount);
         updateCount(jobInput, jobCount);
-        setMessage("已恢复上次填写的简历和岗位，可以直接重新诊断。", "info");
+        if (resumeInput.value || jobInput.value) setMessage("已恢复上次填写的材料。", "info");
         return;
       }
     } catch {
@@ -579,9 +606,77 @@
   });
 
   configureModeNote();
-  restoreInputs();
+  const versionId = params.get("version");
+  if (versionId) {
+    analyzeButton.disabled = resumeInput.disabled = jobInput.disabled = resumePdf.disabled = true;
+    try {
+      const version = await cloud.readVersion(versionId);
+      if (!version) throw new Error("Unavailable version");
+      archive = {
+        resumeId: version.resume_id, versionId: version.id, ownerId: version.user_id,
+        title: version.resumes.title, content: version.content, source: version.source,
+      };
+      resumeInput.value = lastPastedResume = version.content;
+      updateCount(resumeInput, resumeCount);
+      setMessage(`已打开「${archive.title}」的历史版本。修改文字后可保存新版本。`, "info");
+    } catch {
+      setMessage("无法打开这个简历版本，请从「我的档案」重试。");
+    } finally {
+      analyzeButton.disabled = resumeInput.disabled = jobInput.disabled = resumePdf.disabled = false;
+    }
+  } else {
+    restoreInputs(signedInUser.id, params.get("new") === "1");
+  }
 
-  const demoMode = new URLSearchParams(window.location.search).get("demo");
+  const form = document.querySelector("#resumeArchive");
+  cloud.updateSaveForm(form, archive);
+  cloud.attachSaveForm(form, {
+    async prepare(title, user) {
+      const pdf = selectedPdf;
+      if (pdf?.pending) await pdf.pending;
+      const content = selectedPdf?.text || resumeInput.value.trim();
+      if (!content) return null;
+      if (user && user.id !== signedInUser.id) throw new Error("Account changed");
+      const unchanged = archive?.content === content;
+      const source = selectedPdf?.text || restoredUpload === content
+        ? "upload"
+        : unchanged ? archive.source : "manual";
+      const reuseVersion = unchanged && archive.source === source;
+      if (pendingSave?.content !== content || pendingSave?.title !== title || pendingSave?.source !== source) {
+        pendingSave = {
+          resumeId: archive?.resumeId || crypto.randomUUID(),
+          versionId: reuseVersion ? archive.versionId : crypto.randomUUID(),
+          title, content, source,
+        };
+      }
+      return { ...pendingSave, title: archive ? null : title };
+    },
+    login(record) {
+      try {
+        sessionStorage.setItem(INPUT_KEY, JSON.stringify({
+          resume: record.content, source: record.source, title: record.title, archive, ownerId: signedInUser.id,
+          job: jobInput.value, consent: consentCheckbox.checked,
+        }));
+      } catch {
+        // Navigation is still available if the browser disables draft storage.
+      }
+      return "./index.html";
+    },
+    saved(record, user) {
+      archive = { ...record, title: archive?.title || record.title, ownerId: user.id };
+      pendingSave = null;
+      cloud.updateSaveForm(form, archive);
+      const url = new URL(location.href);
+      url.searchParams.delete("new");
+      url.searchParams.set("version", record.versionId);
+      history.replaceState(null, "", url);
+      sessionStorage.setItem(INPUT_KEY, JSON.stringify({
+        resume: record.content, job: jobInput.value.trim(), archive, ownerId: user.id,
+      }));
+    },
+  });
+
+  const demoMode = params.get("demo");
   if (demoMode === "short") {
     clearPdf({ showPaste: false });
     resumeInput.value =

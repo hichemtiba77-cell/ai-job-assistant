@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>我的档案 · 职引者</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./lake-workspace.css" />
+    <link rel="stylesheet" href="./account.css" />
+  </head>
+  <body class="lake-page">
+    <div class="lake-workspace" data-auth-workspace hidden>
+      <aside class="lake-rail" aria-label="职引者和账号">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark" aria-hidden="true">职</span>
+          <span><strong>职引者</strong><small>郑大校园求职</small></span>
+        </a>
+        <div class="lake-rail-heading">
+          <h1>我的档案</h1>
+          <p class="account-email" id="accountEmail"></p>
+        </div>
+        <a class="lake-rail-action" href="./index.html?new=1">开始新的求职诊断</a>
+        <button class="lake-rail-action account-link" id="signOut" type="button" hidden>退出登录</button>
+      </aside>
+      <main class="lake-content">
+        <div class="workspace-heading">
+          <h2>简历与诊断记录</h2>
+          <p>展开简历版本，查看当时的文字和关联报告。</p>
+        </div>
+        <p class="account-message" id="archiveMessage" role="status">正在读取档案…</p>
+        <div class="archive-list" id="archiveList" hidden></div>
+      </main>
+      <footer class="site-footer">
+        <span>职引者 · 郑大校园求职</span>
+        <a href="./privacy.html">隐私与数据说明</a>
+      </footer>
+    </div>
+    <script src="./vendor/supabase/supabase.js" defer></script>
+    <script src="./cloud.js" defer></script>
+    <script src="./history.js" defer></script>
+  </body>
+</html>

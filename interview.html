@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="./lake-workspace.css" />
   </head>
   <body class="lake-page lake-interview report-page">
-    <div class="lake-workspace">
+    <div class="lake-workspace" data-auth-workspace hidden>
       <aside class="lake-rail" aria-label="本轮面试信息">
         <a class="brand" href="./report.html">
           <span class="brand-mark" aria-hidden="true">职</span>
@@ -89,6 +89,8 @@
     <script src="./interview-prompts.js" defer></script>
     <script src="./interview-core.js" defer></script>
     <script src="./browser-api.js" defer></script>
+    <script src="./vendor/supabase/supabase.js" defer></script>
+    <script src="./cloud.js" defer></script>
     <script src="./interview.js" defer></script>
   </body>
 </html>

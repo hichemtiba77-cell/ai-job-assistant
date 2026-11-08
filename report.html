@@ -12,9 +12,10 @@
     <link rel="stylesheet" href="./report.css" />
     <link rel="stylesheet" href="./report-theme.css" />
     <link rel="stylesheet" href="./lake-workspace.css" />
+    <link rel="stylesheet" href="./account.css" />
   </head>
   <body class="lake-page lake-report report-page">
-    <div class="lake-workspace">
+    <div class="lake-workspace" data-auth-workspace hidden>
       <aside class="lake-rail" aria-label="诊断报告信息">
         <a class="brand" href="./index.html" aria-label="职引者首页">
           <span class="brand-mark">职</span>
@@ -39,7 +40,8 @@
           <button class="back-button is-danger" id="forgetButton" type="button">
             删除本次记录
           </button>
-          <a class="report-action report-action-secondary" href="./index.html">← 返回修改材料</a>
+          <a class="report-action report-action-secondary" id="reportBack" href="./index.html">← 返回修改材料</a>
+          <a class="lake-rail-action account-link" href="./history.html">我的档案</a>
         </div>
       </aside>
       <main class="lake-content">
@@ -49,6 +51,12 @@
         </div>
 
         <div class="diagnosis-notice" id="diagnosisNotice" role="status" hidden></div>
+        <form class="archive-save" id="reportArchive" hidden>
+          <label>简历名称 <input name="title" maxlength="100" required placeholder="例如：产品实习简历" /></label>
+          <p class="archive-meta" data-archive-hint>保存当前简历文字、岗位和诊断结果。</p>
+          <button class="primary-button" type="submit">保存到我的档案</button>
+          <p class="account-message" role="status"></p>
+        </form>
 
         <div class="lake-report-grid">
           <div class="lake-report-overview">
@@ -272,6 +280,8 @@
       </footer>
     </div>
 
-    <script src="./report.js"></script>
+    <script src="./vendor/supabase/supabase.js" defer></script>
+    <script src="./cloud.js" defer></script>
+    <script src="./report.js" defer></script>
   </body>
 </html>

@@ -1,6 +1,9 @@
-(() => {
+(async () => {
   "use strict";
 
+  const cloud = window.CareerCloud;
+  const signedInUser = (await cloud?.requireSession())?.user;
+  if (!signedInUser) return;
   const STORAGE_KEY = "aijob:interview:v1";
   const setup = document.querySelector("#interviewSetup");
   const practice = document.querySelector("#interviewPractice");
@@ -24,8 +27,20 @@
     if (message) document.querySelector("#interviewUnavailableText").textContent = message;
   }
 
-  const report = read("aijob:diagnosis:v1");
-  if (!report?.analysis || !report.input?.job) {
+  const reportId = new URLSearchParams(location.search).get("id");
+  let report = read("aijob:diagnosis:v1");
+  if (reportId) {
+    try {
+      report = await cloud.readReport(reportId);
+      for (const link of document.querySelectorAll('a[href="./report.html"]')) {
+        link.href = `./report.html?id=${encodeURIComponent(reportId)}`;
+      }
+    } catch {
+      report = null;
+    }
+  }
+  const ownerId = report?.archive?.ownerId || report?.ownerId;
+  if (!report?.analysis || !report.input?.job || (ownerId && ownerId !== signedInUser.id)) {
     showUnavailable();
     return;
   }
