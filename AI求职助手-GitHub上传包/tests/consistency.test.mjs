@@ -116,6 +116,7 @@ test("模型漏掉证据等级时不再套用默认等级", () => {
       ],
     },
     rubric,
+    resumeText,
   );
   const row = resumeData.evidence_table.find(
     (item) => item.requirement_id === "R01",
@@ -151,6 +152,7 @@ test("模型漏掉硬性条件状态时标记为待确认，而不是自动判�
       ],
     },
     rubric,
+    "每周可实习4天",
   );
   const row = resumeData.evidence_table.find(
     (item) => item.requirement_id === "R04",
@@ -163,6 +165,7 @@ test("只有硬性条件的维度标记为门槛维度，而不是岗位未涉�
   const resumeData = SCORING.normalizeResumeEvidence(
     { evidence_table: [] },
     rubric,
+    resumeText,
   );
   const analysis = SCORING.buildAnalysis(rubric, resumeData, resumeText);
   const conditions = analysis.dimensions.find(

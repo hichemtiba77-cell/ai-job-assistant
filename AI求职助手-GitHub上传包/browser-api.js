@@ -5,6 +5,13 @@
   const analysisCache = new Map();
   const rubricCache = new Map();
   const SCORING = window.AIJobAssistantScoring;
+  const ANCHORED = window.AIJobAssistantAnchoredScoring;
+
+  function remember(cache, key, value) {
+    cache.delete(key);
+    cache.set(key, value);
+    if (cache.size > 20) cache.delete(cache.keys().next().value);
+  }
 
   function getConfig() {
     return window.AIJobAssistantConfig || {};
@@ -47,6 +54,8 @@
     systemPrompt,
     userPrompt,
     maxTokens,
+    normalize,
+    signal,
   ) {
     const key = String(config.DEEPSEEK_API_KEY || "").trim();
     const baseUrl = String(
@@ -59,6 +68,7 @@
     try {
       const response = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
+        redirect: "error",
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
@@ -75,20 +85,20 @@
           thinking: { type: "disabled" },
           stream: false,
         }),
-        signal: controller.signal,
+        signal: AbortSignal.any([controller.signal, signal]),
       });
 
-      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const detail = data?.error?.message || `接口返回 ${response.status}`;
-        throw new Error(`AI 诊断暂时不可用：${String(detail).slice(0, 160)}`);
+        await response.body?.cancel();
+        throw new Error("AI 诊断暂时不可用，请检查测试密钥和模型配置。");
       }
-      const content = data?.choices?.[0]?.message?.content;
-      if (!content?.trim()) {
-        throw new Error("AI 暂未返回分析内容，请重新生成。");
+      const data = await response.json().catch(() => ({}));
+      const choice = data?.choices?.[0];
+      if (choice?.finish_reason !== "stop" || typeof choice.message?.content !== "string") {
+        throw new Error("AI 未返回完整的分析内容，请重新生成。");
       }
       return {
-        raw: parseJsonContent(content),
+        value: normalize(parseJsonContent(choice.message.content)),
         usage: data.usage || null,
       };
     } catch (error) {
@@ -101,33 +111,28 @@
     }
   }
 
-  async function getJobRubric(config, job) {
-    const model = String(config.DEEPSEEK_MODEL || "deepseek-flash");
-    const cacheKey = SCORING.buildRubricCacheKeyInput({ model, job });
+  async function getJobRubric(job, cacheKey, request) {
     if (rubricCache.has(cacheKey)) {
-      return {
-        rubric: rubricCache.get(cacheKey),
-        usage: null,
-        cached: true,
-      };
+      return { value: rubricCache.get(cacheKey), usage: null, cached: true };
     }
-
-    const result = await callDeepSeekJson(
-      config,
-      SCORING.JOB_RUBRIC_SYSTEM_PROMPT,
-      SCORING.buildJobRubricUserPrompt(job),
-      3500,
-    );
-    const rubric = SCORING.normalizeJobRubric(result.raw, job);
-    rubricCache.set(cacheKey, rubric);
-    return { rubric, usage: result.usage, cached: false };
+    const result = await ANCHORED.createRubric(job, request);
+    if (!result.value.unclassified.length) remember(rubricCache, cacheKey, result.value);
+    return { ...result, cached: false };
   }
 
   async function requestDirect(resume, job, options = {}) {
     const config = getConfig();
-    if (!hasDirectConfig()) {
+    if (location.protocol !== "file:" || !hasDirectConfig()) {
       throw new Error("测试直连尚未配置。");
     }
+
+    if (typeof resume !== "string" || typeof job !== "string" ||
+        resume.length > SCORING.MAX_INPUT_LENGTH || job.length > SCORING.MAX_INPUT_LENGTH) {
+      throw new Error("简历和岗位内容各最多 20000 字符。");
+    }
+    resume = ANCHORED.redact(resume, { resume: true });
+    job = ANCHORED.redact(job);
+    if (!resume || !job) throw new Error("简历和岗位内容不能为空。");
 
     const onProgress =
       typeof options.onProgress === "function" ? options.onProgress : () => {};
@@ -135,45 +140,41 @@
     const displayName = String(
       config.DEEPSEEK_DISPLAY_NAME || "DeepSeek-V4.1-Flash-1017",
     );
-    const cacheKey = SCORING.buildAnalysisCacheKeyInput({
-      model,
-      resume,
-      job,
-    });
+    const rubricKey = JSON.stringify([
+      ANCHORED.PROTOCOL_VERSION, ANCHORED.PROMPT_FINGERPRINT, ANCHORED.REDACTION_VERSION,
+      config.DEEPSEEK_BASE_URL || "https://api.deepseek.com", model, job,
+    ]);
+    const cacheKey = JSON.stringify([rubricKey, resume]);
     if (!options.fresh && analysisCache.has(cacheKey)) {
       onProgress({ stage: "cache" });
       return { ...analysisCache.get(cacheKey), cached: true };
     }
 
+    const signal = AbortSignal.timeout(140_000);
+    const request = async (system, prompt) => {
+      try {
+        return await callDeepSeekJson(config, system, prompt, 3000, ANCHORED.validateRows, signal);
+      } catch {
+        signal.throwIfAborted();
+        return null;
+      }
+    };
     onProgress({ stage: "rubric" });
-    const rubricResult = await getJobRubric(config, job);
+    const rubricResult = await getJobRubric(job, rubricKey, request);
     onProgress({ stage: "evidence" });
-    const resumeResult = await callDeepSeekJson(
-      config,
-      SCORING.RESUME_EVIDENCE_SYSTEM_PROMPT,
-      SCORING.buildResumeEvidenceUserPrompt(resume, rubricResult.rubric),
-      7000,
-    );
-    const resumeData = SCORING.normalizeResumeEvidence(
-      resumeResult.raw,
-      rubricResult.rubric,
-    );
+    const resumeResult = await ANCHORED.createEvidence(resume, rubricResult.value, request);
     onProgress({ stage: "scoring" });
     const result = {
-      analysis: SCORING.buildAnalysis(
-        rubricResult.rubric,
-        resumeData,
-        resume,
-      ),
+      analysis: SCORING.buildAnalysis(rubricResult.value, resumeResult.value, resume),
       usage: mergeUsage(rubricResult.usage, resumeResult.usage),
       model: displayName,
       cached: false,
       rubricCached: rubricResult.cached,
-      protocolVersion: SCORING.PROTOCOL_VERSION,
-      promptFingerprint: SCORING.PROMPT_FINGERPRINT,
+      protocolVersion: ANCHORED.PROTOCOL_VERSION,
+      promptFingerprint: ANCHORED.PROMPT_FINGERPRINT,
       createdAt: new Date().toISOString(),
     };
-    analysisCache.set(cacheKey, result);
+    if (result.analysis.analysisStatus !== "incomplete") remember(analysisCache, cacheKey, result);
     return result;
   }
 

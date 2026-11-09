@@ -17,6 +17,7 @@ const requiredFiles = [
   "report.js",
   "privacy.html",
   "scoring-core.js",
+  "anchored-scoring.js",
   "server.mjs",
   "storage/sqlite-store.mjs",
   "progress-events.mjs",
@@ -50,12 +51,12 @@ async function main() {
   if (existsSync(envPath)) {
     record(".env.local 存在", true);
   } else {
-    warn(".env.local 不存在", "将使用模拟结果");
+    warn(".env.local 不存在", "可进行离线检查");
   }
   if (Boolean(process.env.DEEPSEEK_API_KEY)) {
     record("DEEPSEEK_API_KEY 已配置（内容不显示）", true);
   } else {
-    warn("DEEPSEEK_API_KEY 未配置", "将使用模拟结果");
+    warn("DEEPSEEK_API_KEY 未配置", "可进行离线检查");
   }
 
   let status = null;
@@ -73,13 +74,13 @@ async function main() {
     if (status.configured) {
       record("服务已配置模型密钥", true);
     } else {
-      warn("服务未配置模型密钥", "将使用模拟结果");
+      warn("服务未配置模型密钥", "可进行离线检查");
     }
-    record("SQLite 缓存存储", status.storage === "sqlite");
+    record("诊断缓存存储", ["memory", "sqlite"].includes(status.storage));
     record(
       "缓存保留期限已公开",
-      Number.isFinite(status.cacheTtlDays) && status.cacheTtlDays > 0,
-      `${status.cacheTtlDays} 天`,
+      Number.isFinite(status.activeCacheTtlMinutes) && status.activeCacheTtlMinutes >= 0,
+      `${status.activeCacheTtlMinutes} 分钟`,
     );
     record(
       "评分协议与提示词指纹已公开",
@@ -97,7 +98,7 @@ async function main() {
       await postStatus("/api/analyze", {}) === 400,
     );
     record(
-      "删除接口要求原文，不误删记录",
+      "空删除请求会被拒绝",
       await postStatus("/api/forget", {}) === 400,
     );
   }
@@ -112,7 +113,7 @@ async function main() {
     process.exitCode = 1;
     console.log("演示前请先修复失败项。");
   } else if (warnings.length) {
-    console.log("演示环境可用；未配置真实密钥时使用模拟结果。");
+    console.log("演示环境可用；未配置真实密钥时可进行离线检查。");
   } else {
     console.log("演示环境自检通过。");
   }

@@ -14,12 +14,29 @@
   const pdfFileName = document.querySelector("#pdfFileName");
   const pdfFileMeta = document.querySelector("#pdfFileMeta");
   const removePdfButton = document.querySelector("#removePdfButton");
+  const replacePdfButton = document.querySelector("#replacePdfButton");
+  const openPdfReview = document.querySelector("#openPdfReview");
+  const pdfReview = document.querySelector("#pdfReview");
+  const pdfPageNumber = document.querySelector("#pdfPageNumber");
+  const pdfPageRotation = document.querySelector("#pdfPageRotation");
+  const recognizePdfPage = document.querySelector("#recognizePdfPage");
+  const restorePdfPage = document.querySelector("#restorePdfPage");
+  const pdfPageStatus = document.querySelector("#pdfPageStatus");
+  const pdfPageText = document.querySelector("#pdfPageText");
+  const pdfReviewConfirm = document.querySelector("#pdfReviewConfirm");
+  const pdfTextConfirmed = document.querySelector("#pdfTextConfirmed");
+  const reviewControls = [pdfPageNumber, pdfPageRotation, pdfPageText, pdfTextConfirmed, recognizePdfPage, restorePdfPage];
   const usePasteButton = document.querySelector("#usePasteButton");
   const analyzeButton = document.querySelector("#analyzeButton");
   const formMessage = document.querySelector("#formMessage");
   const modeTitle = document.querySelector("#modeTitle");
   const modeDescription = document.querySelector("#modeDescription");
   const freshToggle = document.querySelector("#freshToggle");
+  const privacyPreview = document.querySelector("#privacyPreview");
+  const previewResume = document.querySelector("#previewResume");
+  const previewJob = document.querySelector("#previewJob");
+  const previewStatus = document.querySelector("#previewStatus");
+  const offlineReviewButton = document.querySelector("#offlineReviewButton");
   const consentCheckbox = document.querySelector("#consentCheckbox");
   const analysisProgress = document.querySelector("#analysisProgress");
   const progressTitle = document.querySelector("#progressTitle");
@@ -132,8 +149,13 @@
   }
 
   function clearPdf({ showPaste = true } = {}) {
+    selectedPdf?.controller.abort();
     selectedPdf = null;
     resumePdf.value = "";
+    openPdfReview.hidden = true;
+    togglePdfReview(false);
+    pdfPageText.value = "";
+    pdfDropzone.classList.remove("is-busy");
     showPasteInput();
     if (showPaste) {
       resumeInput.value = lastPastedResume;
@@ -146,29 +168,45 @@
       return;
     }
 
-    const current = {
-      file,
-      text: "",
-      pageCount: 0,
-      pending: null,
-    };
+    selectedPdf?.controller.abort();
+    const current = { file, controller: new AbortController(), pages: [], pending: null, needsReview: false };
     selectedPdf = current;
     lastPastedResume = resumeInput.value;
     pdfFileName.textContent = file.name;
-    pdfFileMeta.textContent = "正在准备，可随时开始诊断";
+    pdfFileMeta.textContent = "正在读取 PDF";
+    pdfFileMeta.title = "";
+    removePdfButton.textContent = "取消读取";
+    openPdfReview.hidden = true;
+    togglePdfReview(false);
+    pdfPageText.value = "";
+    pdfTextConfirmed.checked = false;
+    pdfPageRotation.value = "0";
+    reviewControls.forEach((control) => { control.disabled = false; });
     showPdfInput();
     pdfDropzone.classList.add("is-busy");
     setMessage("", "info");
 
     current.pending = window.AIJobAssistantPdf
-      .extractPdfText(file)
+      .extractPdfText(file, {
+        signal: current.controller.signal,
+        onProgress: ({ stage, pageNumber, pageCount }) => {
+          if (selectedPdf !== current) return;
+          const action = stage === "ocr" ? "正在识别" : "正在读取";
+          pdfFileMeta.textContent = `${action}第 ${pageNumber}/${pageCount} 页`;
+        },
+      })
       .then((result) => {
         if (selectedPdf !== current) {
           return;
         }
-        current.text = result.text;
-        current.pageCount = result.pageCount;
-        pdfFileMeta.textContent = `${result.pageCount} 页 · 已准备好生成诊断`;
+        current.pages = result.pages;
+        current.needsReview = current.pages.some((page) => page.source === "ocr" || page.error);
+        pdfPageNumber.replaceChildren(...current.pages.map((page) => new Option(`第 ${page.pageNumber} 页`, page.pageNumber)));
+        const firstReview = current.pages.find((page) => page.error || page.source === "ocr");
+        if (firstReview) pdfPageNumber.value = firstReview.pageNumber;
+        openPdfReview.hidden = false;
+        togglePdfReview(current.needsReview);
+        refreshPdfReview(current);
       })
       .catch((error) => {
         if (selectedPdf !== current) {
@@ -178,10 +216,80 @@
         setMessage(error.message || "PDF 暂时无法读取，请重试。");
       })
       .finally(() => {
-        pdfDropzone.classList.remove("is-busy");
+        current.pending = null;
+        if (selectedPdf === current) {
+          pdfDropzone.classList.remove("is-busy");
+          removePdfButton.textContent = "移除";
+        }
       });
 
     await current.pending;
+  }
+
+  function togglePdfReview(open) {
+    pdfReview.hidden = !open;
+    openPdfReview.setAttribute("aria-expanded", String(open));
+    openPdfReview.textContent = open ? "收起提取文字" : "查看提取文字";
+  }
+
+  function getReviewPage(current) {
+    return current.pages[Number(pdfPageNumber.value) - 1];
+  }
+
+  function refreshPdfReview(current) {
+    const unresolved = current.pages.filter((page) => page.error && !page.edited);
+    const status = unresolved.length
+      ? `请核对第 ${unresolved.map((page) => page.pageNumber).join("、")} 页`
+      : current.needsReview && !pdfTextConfirmed.checked ? "请确认识别文字" : "可生成诊断";
+    pdfFileMeta.textContent = `${current.pages.length} 页 · ${status}`;
+    pdfFileMeta.title = pdfFileMeta.textContent;
+    pdfReviewConfirm.hidden = !current.needsReview;
+    const page = getReviewPage(current);
+    if (!page) return;
+    if (pdfPageText.value !== page.text) pdfPageText.value = page.text;
+    const source = page.edited ? "已手动编辑" : page.source === "ocr" ? "来自扫描识别" : "来自 PDF 文字层";
+    const lowConfidence = !page.edited && page.source === "ocr" && page.confidence < 70;
+    pdfPageStatus.textContent = page.error && !page.edited
+      ? page.error
+      : lowConfidence ? `${source}，部分文字可能不准确。` : source;
+    restorePdfPage.hidden = !page.textLayer || page.text === page.textLayer;
+  }
+
+  async function retryPdfPage() {
+    const current = selectedPdf;
+    if (!current || current.pending) return;
+    const page = getReviewPage(current);
+    if (!page) return;
+    const rotation = Number(pdfPageRotation.value);
+    current.needsReview = true;
+    pdfTextConfirmed.checked = false;
+    reviewControls.forEach((control) => { control.disabled = true; });
+    removePdfButton.textContent = "取消识别";
+    pdfPageStatus.textContent = `正在识别第 ${page.pageNumber} 页…`;
+    current.pending = window.AIJobAssistantPdf.recognizePdfPage(current.file, page.pageNumber, {
+      signal: current.controller.signal,
+      rotation,
+    }).then((result) => {
+      if (selectedPdf !== current) return;
+      if (!result.text) throw new Error("本次未识别到文字，已保留原内容，可旋转后重试或手动补录。");
+      page.text = result.text;
+      page.source = "ocr";
+      page.confidence = result.confidence;
+      page.edited = false;
+      page.error = "";
+    }).catch((error) => {
+      if (selectedPdf === current) {
+        page.edited = false;
+        page.error = error.message;
+      }
+    }).finally(() => {
+      current.pending = null;
+      if (selectedPdf === current) {
+        reviewControls.forEach((control) => { control.disabled = false; });
+        removePdfButton.textContent = "移除";
+        refreshPdfReview(current);
+      }
+    });
   }
 
   function fillExample(type) {
@@ -336,6 +444,7 @@
           protocolVersion: data.protocolVersion || null,
           promptFingerprint: data.promptFingerprint || null,
           generatedAt: data.createdAt || null,
+          deletionToken: data.deletionToken || null,
         },
       };
     } catch (error) {
@@ -368,39 +477,22 @@
     };
   }
 
-  function buildDemoResult(resume, job, fallbackReason) {
-    return {
-      analysis: window.AIJobAssistantCore.buildMockAnalysis(resume, job),
-      meta: createMeta(resume, job, "mock", "本地模拟", fallbackReason),
-    };
-  }
-
   async function analyzeResumeText(resume, job, options = {}) {
-    const isWeb = location.protocol === "http:" || location.protocol === "https:";
-    const canConnectDirectly = window.AIJobAssistantBrowserApi.hasDirectConfig();
-
-    if (isWeb) {
-      try {
-        return await requestDeepSeek(resume, job, options);
-      } catch (serverError) {
-        if (serverError.code === "missing_api_key") {
-          await new Promise((resolve) => window.setTimeout(resolve, 650));
-          return buildDemoResult(resume, job, "未配置 DeepSeek 密钥");
-        }
-        if (!canConnectDirectly) throw serverError;
-        console.warn("本地服务不可用，切换浏览器测试直连：", serverError);
-      }
+    if (location.protocol === "http:" || location.protocol === "https:") {
+      return requestDeepSeek(resume, job, options);
     }
-
-    if (canConnectDirectly) {
+    if (window.AIJobAssistantBrowserApi.hasDirectConfig()) {
       return requestBrowserDeepSeek(resume, job, options);
     }
-
-    await new Promise((resolve) => window.setTimeout(resolve, 650));
-    return buildDemoResult(resume, job, "未配置测试密钥");
+    throw new Error("尚未配置测试密钥，可以使用离线检查材料。");
   }
 
   function validate(resume, job) {
+    const limit = window.AIJobAssistantScoring.MAX_INPUT_LENGTH;
+    if (resume.length > limit || job.length > limit) {
+      setMessage("简历和岗位内容各最多 20000 字符，请精简后再提交。");
+      return false;
+    }
     if (!resume) {
       setMessage("请先上传 PDF 简历，或点击“加载示例简历”。");
       resumePdf.focus();
@@ -425,42 +517,92 @@
 
   function resetAnalyzeButton() {
     analyzeButton.disabled = false;
+    offlineReviewButton.disabled = false;
     analyzeButton.classList.remove("is-loading");
-    analyzeButton.querySelector(".button-label").textContent = "生成求职诊断报告";
+    analyzeButton.querySelector(".button-label").textContent = "预览并生成求职诊断";
   }
 
-  async function handleAnalyze() {
+  async function readInputs() {
+    if (analyzeButton.disabled || privacyPreview.open) return;
     setMessage("", "info");
     const selectedPdfAtStart = selectedPdf;
     if (selectedPdfAtStart?.pending) {
       await selectedPdfAtStart.pending;
     }
-    if (selectedPdfAtStart && !selectedPdf) {
+    if (selectedPdfAtStart !== selectedPdf || analyzeButton.disabled) {
       return;
     }
 
-    const resume = selectedPdf?.text || resumeInput.value.trim();
-    const job = jobInput.value.trim();
-    if (!validate(resume, job)) {
+    if (selectedPdf?.needsReview && !pdfTextConfirmed.checked) {
+      togglePdfReview(true);
+      setMessage("请先核对 PDF 各页文字并勾选确认，再生成诊断。", "info");
+      pdfTextConfirmed.focus();
       return;
     }
-    if (!consentCheckbox?.checked) {
-      setMessage("请先阅读并勾选同意《隐私与数据说明》，再开始诊断。");
-      consentCheckbox?.focus();
+    const originalResume = selectedPdf
+      ? selectedPdf.pages.map((page) => page.text.trim()).filter(Boolean).join("\n\n")
+      : resumeInput.value.trim();
+    const originalJob = jobInput.value.trim();
+    if (!validate(originalResume, originalJob)) {
       return;
     }
+    return {
+      resume: window.AIJobAssistantAnchoredScoring.redact(originalResume, { resume: true }),
+      job: window.AIJobAssistantAnchoredScoring.redact(originalJob),
+    };
+  }
 
+  async function handleAnalyze() {
+    const input = await readInputs();
+    if (!input || privacyPreview.open || analyzeButton.disabled) return;
+    previewResume.value = input.resume;
+    previewJob.value = input.job;
+    previewStatus.textContent = "";
+    consentCheckbox.checked = false;
+    privacyPreview.showModal();
+  }
+
+  async function confirmPreview() {
+    if (!consentCheckbox.checked) {
+      previewStatus.textContent = "请先勾选同意后再发送。";
+      consentCheckbox.focus();
+      return;
+    }
+    const scoring = window.AIJobAssistantScoring;
+    const resume = window.AIJobAssistantAnchoredScoring.redact(previewResume.value, { resume: true });
+    const job = window.AIJobAssistantAnchoredScoring.redact(previewJob.value);
+    if ([resume, job].some((text) => text.length < 30 || text.length > scoring.MAX_INPUT_LENGTH)) {
+      previewStatus.textContent = "简历和岗位各需保留 30 到 20000 字符的有效内容。";
+      return;
+    }
+    if (resume !== previewResume.value || job !== previewJob.value) {
+      previewResume.value = resume;
+      previewJob.value = job;
+      previewStatus.textContent = "已重新整理并遮盖识别到的信息，请复核后再次确认。";
+      return;
+    }
+    privacyPreview.close();
+    await generateReport({ resume, job });
+  }
+
+  async function generateReport({ resume, job }, { offline = false } = {}) {
+    if (analyzeButton.disabled) return;
     analyzeButton.disabled = true;
+    offlineReviewButton.disabled = true;
     analyzeButton.classList.add("is-loading");
     analyzeButton.querySelector(".button-label").textContent = "正在生成求职诊断";
     startProgress();
 
     try {
-      const result = await analyzeResumeText(resume, job, {
+      const result = offline
+        ? {
+            analysis: window.AIJobAssistantAnchoredScoring.localReview(resume, job),
+            meta: createMeta(resume, job, "offline", "离线材料检查"),
+          }
+        : await analyzeResumeText(resume, job, {
         fresh: Boolean(freshToggle?.checked),
         onProgress: handleProgressEvent,
       });
-      sessionStorage.setItem(INPUT_KEY, JSON.stringify({ resume, job }));
       sessionStorage.setItem(
         DIAGNOSIS_KEY,
         JSON.stringify({
@@ -469,6 +611,7 @@
           meta: result.meta,
         }),
       );
+      sessionStorage.removeItem(INPUT_KEY);
       finishProgress(
         result.meta?.cached
           ? "命中历史缓存：复用了上次的相同结果，本次没有再次调用模型。"
@@ -482,9 +625,9 @@
           : "./report.html",
       );
     } catch (error) {
-      console.error(error);
-      const message =
-        error.message || "诊断报告生成失败，请重试或检查网络是否正常。";
+      const message = offline
+        ? "无法打开离线报告，请检查浏览器的会话存储设置。"
+        : (error.message || "诊断报告生成失败。") + " 可重试或选择离线检查材料。";
       setMessage(message);
       failProgress(message);
       resetAnalyzeButton();
@@ -493,7 +636,8 @@
 
   function restoreInputs() {
     try {
-      const saved = JSON.parse(sessionStorage.getItem(INPUT_KEY) || "null");
+      const report = JSON.parse(sessionStorage.getItem(DIAGNOSIS_KEY) || "null");
+      const saved = report?.input ?? JSON.parse(sessionStorage.getItem(INPUT_KEY) || "null");
       if (saved?.resume && saved?.job) {
         resumeInput.value = saved.resume;
         jobInput.value = saved.job;
@@ -525,7 +669,7 @@
     if (location.protocol === "file:") {
       modeTitle.textContent = "求职诊断演示";
       modeDescription.textContent =
-        "当前未启用测试直连，页面会展示模拟诊断结果。";
+        "当前未启用测试直连，可在本机离线检查材料。";
       return;
     }
     modeTitle.textContent = "DeepSeek AI 求职诊断";
@@ -539,13 +683,52 @@
   });
   jobInput.addEventListener("input", () => updateCount(jobInput, jobCount));
   analyzeButton.addEventListener("click", handleAnalyze);
+  offlineReviewButton.addEventListener("click", async () => {
+    const input = await readInputs();
+    if (input && !privacyPreview.open) await generateReport(input, { offline: true });
+  });
+  document.querySelector("#confirmPreviewButton").addEventListener("click", confirmPreview);
+  document.querySelector("#cancelPreviewButton").addEventListener("click", () => privacyPreview.close());
+  privacyPreview.addEventListener("close", () => {
+    previewResume.value = "";
+    previewJob.value = "";
+    consentCheckbox.checked = false;
+  });
   retryButton.addEventListener("click", () => {
     retryButton.hidden = true;
     handleAnalyze();
   });
   resumePdf.addEventListener("change", () => {
-    preparePdf(resumePdf.files?.[0]);
+    const file = resumePdf.files?.[0];
+    resumePdf.value = "";
+    preparePdf(file);
   });
+  replacePdfButton.addEventListener("click", () => resumePdf.click());
+  openPdfReview.addEventListener("click", () => togglePdfReview(pdfReview.hidden));
+  pdfPageNumber.addEventListener("change", () => {
+    pdfPageRotation.value = "0";
+    refreshPdfReview(selectedPdf);
+  });
+  recognizePdfPage.addEventListener("click", retryPdfPage);
+  pdfPageText.addEventListener("input", () => {
+    const page = getReviewPage(selectedPdf);
+    page.text = pdfPageText.value;
+    page.edited = true;
+    selectedPdf.needsReview = true;
+    pdfTextConfirmed.checked = false;
+    refreshPdfReview(selectedPdf);
+  });
+  restorePdfPage.addEventListener("click", () => {
+    const page = getReviewPage(selectedPdf);
+    page.text = page.textLayer;
+    page.source = "text";
+    page.edited = false;
+    page.error = "";
+    selectedPdf.needsReview = true;
+    pdfTextConfirmed.checked = false;
+    refreshPdfReview(selectedPdf);
+  });
+  pdfTextConfirmed.addEventListener("change", () => refreshPdfReview(selectedPdf));
   removePdfButton.addEventListener("click", () => {
     clearPdf({ showPaste: true });
     setMessage("已移除 PDF，可以重新上传或直接粘贴简历。", "info");

@@ -57,3 +57,18 @@ test("没有运行时返回空统计而不是抛错", () => {
   assert.equal(summary.range, 0);
   assert.deepEqual(summary.requirementConsistency, []);
 });
+
+test("空分和失败不进入分布，条款移位仍按原文锚点对齐", () => {
+  const summary = summarizeRuns([
+    { score: null, evidenceItems: [{ ...evidence("R01", 4, 3, 2), jobEvidence: "使用 SQL" }] },
+    { failed: true },
+    { score: 70, evidenceItems: [
+      { ...evidence("R02", 4, 3, 2), jobEvidence: "使用SQL" },
+      { ...evidence("R03", 2, 2, 1), jobEvidence: "使用Excel" },
+    ] },
+  ]);
+  assert.deepEqual(summary.scores, [70]);
+  assert.equal(summary.unscored, 1);
+  assert.equal(summary.failed, 1);
+  assert.deepEqual(summary.requirementConsistency.map(({ present, missing }) => [present, missing]), [[2, 0], [1, 1]]);
+});

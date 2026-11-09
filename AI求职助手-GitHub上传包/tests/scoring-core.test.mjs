@@ -42,6 +42,8 @@ const jobRaw = {
   ],
 };
 
+const jobText = [jobRaw.job_title, ...jobRaw.job_requirements.map((row) => row.jd_quote)].join("\n");
+
 const resumeText = `张同学
 软件工程专业本科生，预计2027年毕业
 教育经历
@@ -56,7 +58,7 @@ function evidenceRow(requirementId, overrides = {}) {
   return {
     requirement_id: requirementId,
     evidence_status: "direct",
-    resume_quote: "负责项目核心任务并取得明确结果",
+    resume_quote: "负责校园二手平台需求分析和后端接口",
     relevance_level: 4,
     evidence_level: 3,
     ownership_level: 3,
@@ -87,14 +89,15 @@ function buildResumeData(evidenceRows) {
       suggestions: [],
       summary: "",
     },
-    SCORING.normalizeJobRubric(jobRaw, jobRaw.job_requirements[0].jd_quote),
+    SCORING.normalizeJobRubric(jobRaw, jobText),
+    resumeText,
   );
 }
 
 test("岗位评分表由程序生成稳定编号", () => {
   const rubric = SCORING.normalizeJobRubric(
     jobRaw,
-    "AI产品实习生\n岗位职责",
+    jobText,
   );
   assert.deepEqual(
     rubric.requirements.map((item) => item.id),
@@ -105,13 +108,14 @@ test("岗位评分表由程序生成稳定编号", () => {
 });
 
 test("遗漏的证据行由程序补零，分数不会变成空值", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = SCORING.normalizeResumeEvidence(
     {
       resume_items: [],
       evidence_table: [evidenceRow("R01")],
     },
     rubric,
+    resumeText,
   );
   assert.equal(resumeData.evidence_table.length, 4);
   assert.equal(
@@ -126,13 +130,14 @@ test("遗漏的证据行由程序补零，分数不会变成空值", () => {
 });
 
 test("简历没有任何证据时仍返回可解释的0到100分", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = SCORING.normalizeResumeEvidence(
     {
       resume_items: [],
       evidence_table: [],
     },
     rubric,
+    "仅有姓名",
   );
   const analysis = SCORING.buildAnalysis(rubric, resumeData, "仅有姓名");
   assert.equal(analysis.score, 0);
@@ -142,7 +147,7 @@ test("简历没有任何证据时仍返回可解释的0到100分", () => {
 });
 
 test("相同评分表和证据得到完全相同分数", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = buildResumeData([
     evidenceRow("R01"),
     evidenceRow("R02", {
@@ -160,7 +165,7 @@ test("相同评分表和证据得到完全相同分数", () => {
 });
 
 test("删除核心证据会降低分数，而不是删除该维度分母", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const full = SCORING.buildAnalysis(
     rubric,
     buildResumeData([
@@ -198,7 +203,7 @@ test("删除核心证据会降低分数，而不是删除该维度分母", () =>
 });
 
 test("硬性条件未知只影响门槛和置信度，不会取消匹配分", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = buildResumeData([
     evidenceRow("R01"),
     evidenceRow("R02"),
@@ -223,7 +228,7 @@ test("硬性条件未知只影响门槛和置信度，不会取消匹配分", ()
 });
 
 test("简历准备度由程序规则计算", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = buildResumeData([
     evidenceRow("R01"),
     evidenceRow("R02"),
@@ -236,7 +241,7 @@ test("简历准备度由程序规则计算", () => {
 });
 
 test("只有一个bonus要求的维度不会被权重错误减半", () => {
-  const rubric = SCORING.normalizeJobRubric(jobRaw, "AI产品实习生");
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = buildResumeData([
     evidenceRow("R01"),
     evidenceRow("R02"),
@@ -253,9 +258,89 @@ test("只有一个bonus要求的维度不会被权重错误减半", () => {
   assert.equal(behavior.score, behaviorEvidence.requirementScore);
 });
 
+test("无效引用不计分，PDF换行产生的空白可正常匹配", () => {
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
+  const resume = "负责校园二手平台需求\n分析和后端接口，使用 Python   和 SQL。";
+  const resumeData = SCORING.normalizeResumeEvidence(
+    {
+      evidence_table: [
+        evidenceRow("R01", { resume_quote: "使用 Python 和 SQL" }),
+        evidenceRow("R02", { resume_quote: "负责校园二手平台需求分析和后端接口" }),
+        evidenceRow("R03", { resume_quote: "协调五个团队完成交付" }),
+      ],
+    },
+    rubric,
+    resume,
+  );
+  const analysis = SCORING.buildAnalysis(rubric, resumeData, resume);
+
+  const [skills, experience, behavior] = analysis.evidenceItems;
+  assert.ok(skills.requirementScore > 0);
+  assert.ok(experience.requirementScore > 0);
+  assert.equal(behavior.requirementScore, 0);
+  assert.equal(behavior.resumeEvidence, "简历中未找到");
+  assert.match(behavior.explanation, /无法在简历原文中核实/);
+  assert.ok(analysis.strengths.every((item) => !item.includes("协调五个团队")));
+});
+
 test("证据提示词要求硬性条件与简历事实冲突时标记unmet", () => {
   assert.match(
     SCORING.RESUME_EVIDENCE_SYSTEM_PROMPT,
     /学历、专业、毕业时间、证书、到岗时间等与硬性条件冲突时，必须填unmet/,
   );
+});
+
+test("虚构的岗位引用不能进入评分表或新增门槛", () => {
+  const rubric = SCORING.normalizeJobRubric({
+    job_requirements: [
+      ...jobRaw.job_requirements,
+      { category: "hard", dimension: "education", jd_quote: "必须是博士" },
+    ],
+  }, jobText);
+  assert.equal(rubric.requirements.length, 4);
+  assert.throws(() => SCORING.normalizeJobRubric(jobRaw, "岗位描述缺失"), /评分表为空/);
+});
+
+test("时效标签的波动不改变评分，非法等级不能换成满分", () => {
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
+  const build = (overrides) => SCORING.buildAnalysis(
+    rubric, buildResumeData([evidenceRow("R01", overrides)]), resumeText,
+  ).evidenceItems[0];
+  assert.equal(build({ recency_level: 0 }).requirementScore, build({ recency_level: 3 }).requirementScore);
+  assert.equal(build({ relevance_level: 100 }).requirementScore, 0);
+  assert.equal(build({ ownership_level: true }).levelsComplete, false);
+  const partial = build({ evidence_status: "partial", relevance_level: 4 });
+  assert.equal(partial.relevanceLevel, 2);
+  assert.ok(partial.requirementScore < build({}).requirementScore);
+});
+
+test("重复且冲突的硬性证据始终待确认", () => {
+  const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
+  const rows = [
+    ...rubric.requirements.slice(0, 3).map(({ id }) => evidenceRow(id, { evidence_status: "none" })),
+    evidenceRow("R04", { hard_status: "met" }),
+    evidenceRow("R04", { hard_status: "unmet" }),
+  ];
+  for (const evidence_table of [rows, [...rows].reverse()]) {
+    const data = SCORING.validateModelEvidence({ evidence_table }, rubric, resumeText);
+    assert.equal(SCORING.buildAnalysis(rubric, data, resumeText).hardGate.status, "unknown");
+  }
+  assert.throws(() => SCORING.validateModelEvidence({}, rubric, resumeText), /有效岗位编号/);
+  assert.throws(() => SCORING.validateModelEvidence({ evidence_table: rows.slice(1) }, rubric, resumeText), /有效岗位编号/);
+});
+
+test("脱敏可重复执行并保留经历", () => {
+  const raw = "姓名：张三\n邮箱：Test@example.com\n手机：＋８６ １３８００１３８０００\n证件：11010519491231002X\n微信号：private_id\n住址：某小区一号楼\n负责Python数据分析，清洗3000条数据。";
+  const redacted = SCORING.redactPersonalText(raw, { resume: true });
+  for (const secret of ["张三", "example.com", "13800138000", "11010519491231002X", "private_id", "某小区"]) {
+    assert.ok(!redacted.includes(secret));
+  }
+  assert.match(redacted, /负责Python数据分析,清洗3000条数据/);
+  assert.equal(SCORING.redactPersonalText(redacted, { resume: true }), redacted);
+});
+
+test("新缓存键区分跨字段换行的不同输入", () => {
+  const first = SCORING.buildAnalysisCacheKeyInput({ resume: "简历\n附加", job: "岗位" });
+  const second = SCORING.buildAnalysisCacheKeyInput({ resume: "简历", job: "附加\n岗位" });
+  assert.notEqual(first, second);
 });

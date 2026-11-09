@@ -14,5 +14,10 @@
     "eval:baseline": "node tools/eval-baseline.mjs",
     "configure-browser": "node tools/generate-browser-config.mjs",
     "check-balance": "node tools/check_deepseek_balance.mjs"
+  },
+  "dependencies": {
+    "@tesseract.js-data/chi_sim": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "tesseract.js": "7.0.0"
   }
 }

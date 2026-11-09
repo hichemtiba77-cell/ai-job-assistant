@@ -106,6 +106,7 @@
                 <span id="pdfFileMeta" aria-live="polite">可直接生成求职诊断</span>
               </div>
               <div class="pdf-file-actions">
+                <button class="text-button" id="replacePdfButton" type="button">换文件</button>
                 <button class="text-button" id="usePasteButton" type="button">
                   改为粘贴
                 </button>
@@ -119,6 +120,30 @@
                 </button>
               </div>
             </div>
+            <button class="text-button pdf-review-toggle" id="openPdfReview" type="button" aria-expanded="false" aria-controls="pdfReview" hidden>查看提取文字</button>
+            <section class="pdf-review" id="pdfReview" aria-labelledby="pdfReviewTitle" hidden>
+              <h3 id="pdfReviewTitle">核对简历文字</h3>
+              <p>按页查看和修改。请核对日期、技能名和项目数字，留空的页面不会进入诊断。</p>
+              <div class="pdf-review-controls">
+                <label>页码 <select id="pdfPageNumber"></select></label>
+                <label>识别方向
+                  <select id="pdfPageRotation">
+                    <option value="0">原方向</option>
+                    <option value="90">顺时针 90°</option>
+                    <option value="180">旋转 180°</option>
+                    <option value="270">逆时针 90°</option>
+                  </select>
+                </label>
+                <button class="text-button" id="recognizePdfPage" type="button">重新识别本页</button>
+                <button class="text-button" id="restorePdfPage" type="button" hidden>使用文字层</button>
+              </div>
+              <p id="pdfPageStatus" role="status"></p>
+              <label class="sr-only" for="pdfPageText">本页简历文字</label>
+              <textarea id="pdfPageText" rows="7" spellcheck="false" placeholder="可在这里手动补录本页文字"></textarea>
+              <label class="pdf-review-confirm" id="pdfReviewConfirm" hidden>
+                <input id="pdfTextConfirmed" type="checkbox" /> 我已核对各页，确认使用当前文字
+              </label>
+            </section>
             <div class="resume-divider"><span>也可以直接粘贴简历文字</span></div>
             <label class="sr-only" for="resumeText">简历文字</label>
             <textarea
@@ -135,7 +160,7 @@
             </div>
             <div class="future-note pdf-privacy-note">
               <span>本地解析</span>
-              PDF 在当前浏览器中解析；提取出的文字会随岗位要求发送给分析服务，但不会上传到文件存储。
+              PDF 和页面图像在当前浏览器中处理。生成诊断时，只发送简历文字和岗位要求。
             </div>
           </article>
 
@@ -174,18 +199,28 @@
               <p id="modeDescription">上传简历并填写目标岗位，即可生成分析结果。</p>
             </div>
           </div>
-          <label class="consent-check">
-            <input id="consentCheckbox" type="checkbox" />
-            <span>
-              我已阅读
-              <a href="./privacy.html" target="_blank" rel="noopener">隐私与数据说明</a>
-              ，同意将简历和岗位文字发送给分析服务。
-            </span>
-          </label>
           <button class="primary-button" id="analyzeButton" type="button">
-            <span class="button-label">生成求职诊断报告</span>
+            <span class="button-label">预览并生成求职诊断</span>
             <span class="button-arrow" aria-hidden="true">→</span>
           </button>
+          <button class="progress-retry" id="offlineReviewButton" type="button">离线检查材料</button>
+          <dialog id="privacyPreview" class="privacy-preview" aria-labelledby="privacyPreviewTitle">
+            <h2 id="privacyPreviewTitle">核对即将发送的文字</h2>
+            <p>已自动遮盖可识别的个人信息。请检查是否仍有敏感内容，并直接编辑下方文字。</p>
+            <label for="previewResume">简历文字</label>
+            <textarea id="previewResume" rows="6" spellcheck="false"></textarea>
+            <label for="previewJob">岗位文字</label>
+            <textarea id="previewJob" rows="5" spellcheck="false"></textarea>
+            <p id="previewStatus" role="status"></p>
+            <label class="consent-check">
+              <input id="consentCheckbox" type="checkbox" />
+              <span>我已阅读 <a href="./privacy.html" target="_blank" rel="noopener">隐私与数据说明</a>，同意发送以上材料进行分析。</span>
+            </label>
+            <div class="privacy-preview-actions">
+              <button class="progress-retry" id="cancelPreviewButton" type="button">返回</button>
+              <button class="primary-button" id="confirmPreviewButton" type="button">确认发送</button>
+            </div>
+          </dialog>
           <label class="fresh-toggle">
             <input id="freshToggle" type="checkbox" />
             <span>
@@ -232,8 +267,10 @@
     <script src="./config.local.js"></script>
     <script src="./config.example.js"></script>
     <script src="./vendor/pdfjs/pdf.min.js"></script>
+    <script src="./ocr.js"></script>
     <script src="./pdf-extractor.js"></script>
     <script src="./scoring-core.js"></script>
+    <script src="./anchored-scoring.js"></script>
     <script src="./browser-api.js"></script>
     <script src="./data/examples.js"></script>
     <script src="./analysis-core.js"></script>

@@ -27,10 +27,13 @@ const jobRaw = {
   ],
 };
 
-const resumeText = `软件工程本科
+function buildAnalysis(
+  hardStatus,
+  degree = hardStatus === "unmet" ? "教育学本科" : "软件工程本科",
+  quote = hardStatus === "unknown" ? "简历中未找到" : degree,
+) {
+  const resumeText = `${degree}
 使用Python完成课程数据分析项目，独立清洗两万条记录并输出报告。`;
-
-function buildAnalysis(hardStatus) {
   const rubric = SCORING.normalizeJobRubric(jobRaw, jobText);
   const resumeData = SCORING.normalizeResumeEvidence(
     {
@@ -48,7 +51,7 @@ function buildAnalysis(hardStatus) {
         {
           requirement_id: "R02",
           evidence_status: "none",
-          resume_quote: "简历中未找到",
+          resume_quote: quote,
           relevance_level: 0,
           evidence_level: 0,
           ownership_level: 0,
@@ -58,6 +61,7 @@ function buildAnalysis(hardStatus) {
       ],
     },
     rubric,
+    resumeText,
   );
   return SCORING.buildAnalysis(rubric, resumeData, resumeText);
 }
@@ -79,6 +83,16 @@ test("硬性条件待确认时不影响分数，只保留门槛提示", () => {
   assert.equal(analysis.hardGate.blocked, false);
   assert.equal(analysis.score, 100);
   assert.equal(analysis.rawScore, 100);
+});
+
+test("没有可核实的原文时，硬性条件保持待确认", () => {
+  for (const hardStatus of ["met", "unmet"]) {
+    const analysis = buildAnalysis(hardStatus, "软件工程本科", "教育学本科");
+    assert.equal(analysis.hardGate.status, "unknown");
+    assert.equal(analysis.hardGate.blocked, false);
+    assert.equal(analysis.score, 100);
+    assert.match(analysis.constraints[0].detail, /无法在简历原文中核实/);
+  }
 });
 
 test("硬性条件满足时正常计分", () => {

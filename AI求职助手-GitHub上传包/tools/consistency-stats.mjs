@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 function round1(value) {
   return Math.round(value * 10) / 10;
 }
@@ -33,12 +35,22 @@ function levelSignature(item) {
   ].join("|");
 }
 
+export function comparableScore(run) {
+  if (Object.hasOwn(run, "matchScore")) return run.matchScore;
+  if (Object.hasOwn(run, "rawScore")) return run.rawScore;
+  return run.score;
+}
+
 export function summarizeRuns(runs) {
   const safeRuns = Array.isArray(runs) ? runs : [];
   if (!safeRuns.length) {
     return {
       runs: 0,
       scores: [],
+      scored: 0,
+      unscored: 0,
+      failed: 0,
+      hardGateUnknown: 0,
       min: 0,
       max: 0,
       range: 0,
@@ -51,9 +63,10 @@ export function summarizeRuns(runs) {
     };
   }
 
-  const scores = safeRuns
-    .map((run) => Number(run?.score))
-    .filter((score) => Number.isFinite(score));
+  const completed = safeRuns.filter((run) => run && !run.failed);
+  const scores = completed
+    .map(comparableScore)
+    .filter(Number.isFinite);
   const min = scores.length ? Math.min(...scores) : 0;
   const max = scores.length ? Math.max(...scores) : 0;
   const mean = scores.length
@@ -64,9 +77,10 @@ export function summarizeRuns(runs) {
       scores.length
     : 0;
   const scoreMode = rateOf(scores);
+  const hardGateUnknown = completed.filter((run) => run.hardGate?.status === "unknown").length;
 
   const dimensionKeys = new Set();
-  safeRuns.forEach((run) => {
+  completed.forEach((run) => {
     (run?.dimensions || []).forEach((dimension) => {
       dimensionKeys.add(dimension.key);
     });
@@ -74,7 +88,7 @@ export function summarizeRuns(runs) {
 
   const dimensionConsistency = {};
   dimensionKeys.forEach((key) => {
-    const values = safeRuns
+    const values = completed
       .map((run) =>
         (run?.dimensions || []).find((dimension) => dimension.key === key),
       )
@@ -86,33 +100,43 @@ export function summarizeRuns(runs) {
     dimensionConsistency[key] = { modal, rate };
   });
 
-  const requirementOrder = [];
-  const requirementValues = new Map();
-  safeRuns.forEach((run) => {
-    (run?.evidenceItems || []).forEach((item) => {
-      const id = String(item?.requirementId || "");
-      if (!id) return;
-      if (!requirementValues.has(id)) {
-        requirementValues.set(id, []);
-        requirementOrder.push(id);
-      }
-      requirementValues.get(id).push(levelSignature(item));
-    });
-  });
+  const requirements = new Map();
+  for (const run of completed) {
+    const seen = new Set();
+    for (const item of run.evidenceItems || []) {
+      const quote = typeof item.jobEvidence === "string"
+        ? item.jobEvidence.normalize("NFKC").replace(/\s+/gu, "").trim()
+        : "";
+      // The plain R-number is useful for fixture display but is not a stable cross-run key.
+      const id = quote
+        ? createHash("sha256").update(quote).digest("hex").slice(0, 20)
+        : item.requirementId;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      if (!requirements.has(id)) requirements.set(id, []);
+      requirements.get(id).push(levelSignature(item));
+    }
+  }
 
-  const requirementConsistency = requirementOrder.map((id) => {
-    const { modal, rate } = rateOf(requirementValues.get(id));
-    return { id, modal, rate };
+  const requirementConsistency = [...requirements].map(([id, values]) => {
+    const { modal, rate } = rateOf(values);
+    return { id, modal, rate, present: values.length, missing: completed.length - values.length };
   });
 
   return {
     runs: safeRuns.length,
     scores,
-    min,
-    max,
-    range: max - min,
-    mean: round1(mean),
-    stdDev: round1(Math.sqrt(variance)),
+    scored: scores.length,
+    scoredRate: round1(scores.length * 100 / safeRuns.length),
+    completedRate: round1(completed.length * 100 / safeRuns.length),
+    unscored: completed.length - scores.length,
+    failed: safeRuns.length - completed.length,
+    hardGateUnknown,
+    min: scores.length ? min : null,
+    max: scores.length ? max : null,
+    range: scores.length ? max - min : null,
+    mean: scores.length ? round1(mean) : null,
+    stdDev: scores.length ? round1(Math.sqrt(variance)) : null,
     modalScore: scoreMode.modal,
     exactScoreMatchRate: scoreMode.rate,
     dimensionConsistency,
@@ -124,7 +148,7 @@ export function formatSummaryMarkdown(summary, label = "一致性统计") {
   const lines = [
     `## ${label}`,
     "",
-    `- 运行次数：${summary.runs}`,
+    `- 运行次数：${summary.runs}，有分 ${summary.scored}，无分 ${summary.unscored}，失败 ${summary.failed}，门槛待确认 ${summary.hardGateUnknown}`,
     `- 总分范围：${summary.min}–${summary.max}（极差 ${summary.range}）`,
     `- 平均分：${summary.mean}，标准差：${summary.stdDev}`,
     `- 众数分：${summary.modalScore ?? "--"}，完全一致率：${summary.exactScoreMatchRate}%`,
@@ -135,10 +159,10 @@ export function formatSummaryMarkdown(summary, label = "一致性统计") {
       ([key, value]) => `| ${key} | ${value.modal ?? "--"} | ${value.rate}% |`,
     ),
     "",
-    "| 要求 | 一致率 |",
-    "| --- | --- |",
+    "| 原文锚点 | 出现 | 缺项 | 出现时一致率 |",
+    "| --- | --- | --- | --- |",
     ...summary.requirementConsistency.map(
-      (item) => `| ${item.id} | ${item.rate}% |`,
+      (item) => `| ${item.id} | ${item.present} | ${item.missing} | ${item.rate}% |`,
     ),
   ];
   return lines.join("\n");

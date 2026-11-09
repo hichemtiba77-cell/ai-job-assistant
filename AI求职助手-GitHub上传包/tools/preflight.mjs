@@ -47,6 +47,7 @@ function checkFiles() {
     "privacy.html",
     "server.mjs",
     "scoring-core.js",
+    "anchored-scoring.js",
     "browser-api.js",
     "storage/sqlite-store.mjs",
   ];
@@ -61,17 +62,17 @@ function checkFiles() {
 function checkEnvironment() {
   const environment = loadLocalEnvironment(join(ROOT, ".env.local"));
   if (!environment.loaded) {
-    warn(".env.local", "不存在，本地服务将使用模拟结果");
+    warn(".env.local", "不存在，本地服务可进行离线检查");
   } else if (String(process.env.DEEPSEEK_API_KEY || "").trim()) {
     pass(".env.local", "已配置 DEEPSEEK_API_KEY");
   } else {
-    warn(".env.local", "未填写 DEEPSEEK_API_KEY，本地服务将使用模拟结果");
+    warn(".env.local", "未填写 DEEPSEEK_API_KEY，本地服务可进行离线检查");
   }
 
   if (existsSync(join(ROOT, "config.local.js"))) {
     pass("双击模式配置", "config.local.js 存在");
   } else {
-    warn("双击模式配置", "config.local.js 不存在，双击 index.html 只能使用模拟结果");
+    warn("双击模式配置", "config.local.js 不存在，双击 index.html 可进行离线检查");
   }
 }
 

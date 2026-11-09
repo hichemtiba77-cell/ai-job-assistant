@@ -1,0 +1,150 @@
+{
+  "D01-1": [
+    {
+      "jd_quote": "使用SQL清洗交易数据",
+      "evidence_quotes": [
+        "用SQL清洗交易表"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "每周到岗4天以上",
+      "hard_status": "met"
+    }
+  ],
+  "D01-2": [
+    {
+      "jd_quote": "使用SQL清洗交易数据",
+      "evidence_quotes": [
+        "用SQL做过订单查询"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "每周到岗4天以上",
+      "hard_status": "unmet"
+    }
+  ],
+  "D01-3": [
+    {
+      "jd_quote": "使用SQL清洗交易数据",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "每周到岗4天以上",
+      "hard_status": "unknown"
+    }
+  ],
+  "D02-1": [
+    {
+      "jd_quote": "访谈用户并整理需求",
+      "evidence_quotes": [
+        "访谈12位校园用户并整理需求优先级"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "2027年毕业",
+      "hard_status": "met"
+    }
+  ],
+  "D02-2": [
+    {
+      "jd_quote": "访谈用户并整理需求",
+      "evidence_quotes": [
+        "整理问卷评论并归纳需求"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "2027年毕业",
+      "hard_status": "unmet"
+    }
+  ],
+  "D02-3": [
+    {
+      "jd_quote": "访谈用户并整理需求",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "2027年毕业",
+      "hard_status": "unknown"
+    }
+  ],
+  "D03-1": [
+    {
+      "jd_quote": "使用Python开发接口",
+      "evidence_quotes": [
+        "独立使用Python开发订单接口"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "本科及以上在读",
+      "hard_status": "met"
+    }
+  ],
+  "D03-2": [
+    {
+      "jd_quote": "使用Python开发接口",
+      "evidence_quotes": [
+        "使用Python编写数据导出脚本"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "本科及以上在读",
+      "hard_status": "unmet"
+    }
+  ],
+  "D03-3": [
+    {
+      "jd_quote": "使用Python开发接口",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "本科及以上在读",
+      "hard_status": "unknown"
+    }
+  ],
+  "D04-1": [
+    {
+      "jd_quote": "执行活动并复盘转化效果",
+      "evidence_quotes": [
+        "执行校园招募活动并复盘转化效果"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "实习周期3个月以上",
+      "hard_status": "met"
+    }
+  ],
+  "D04-2": [
+    {
+      "jd_quote": "执行活动并复盘转化效果",
+      "evidence_quotes": [
+        "协助布置活动现场并记录签到数据"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "实习周期3个月以上",
+      "hard_status": "unmet"
+    }
+  ],
+  "D04-3": [
+    {
+      "jd_quote": "执行活动并复盘转化效果",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "实习周期3个月以上",
+      "hard_status": "unknown"
+    }
+  ]
+}

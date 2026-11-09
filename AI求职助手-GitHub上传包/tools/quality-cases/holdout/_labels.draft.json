@@ -1,0 +1,150 @@
+{
+  "H01-1": [
+    {
+      "jd_quote": "使用STM32验证串口通信",
+      "evidence_quotes": [
+        "使用STM32实现串口收发并验证异常帧"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "每周到岗3天以上",
+      "hard_status": "met"
+    }
+  ],
+  "H01-2": [
+    {
+      "jd_quote": "使用STM32验证串口通信",
+      "evidence_quotes": [
+        "使用STM32验证定时器中断"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "每周到岗3天以上",
+      "hard_status": "unmet"
+    }
+  ],
+  "H01-3": [
+    {
+      "jd_quote": "使用STM32验证串口通信",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "每周到岗3天以上",
+      "hard_status": "unknown"
+    }
+  ],
+  "H02-1": [
+    {
+      "jd_quote": "使用Excel核对库存差异",
+      "evidence_quotes": [
+        "用Excel核对库存差异"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "本科及以上学历",
+      "hard_status": "met"
+    }
+  ],
+  "H02-2": [
+    {
+      "jd_quote": "使用Excel核对库存差异",
+      "evidence_quotes": [
+        "用Excel登记货品数量"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "本科及以上学历",
+      "hard_status": "unmet"
+    }
+  ],
+  "H02-3": [
+    {
+      "jd_quote": "使用Excel核对库存差异",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "本科及以上学历",
+      "hard_status": "unknown"
+    }
+  ],
+  "H03-1": [
+    {
+      "jd_quote": "编写接口自动化测试用例",
+      "evidence_quotes": [
+        "为订单接口编写自动化测试用例"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "2027年毕业",
+      "hard_status": "met"
+    }
+  ],
+  "H03-2": [
+    {
+      "jd_quote": "编写接口自动化测试用例",
+      "evidence_quotes": [
+        "手工执行接口测试并维护缺陷清单"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "2027年毕业",
+      "hard_status": "unmet"
+    }
+  ],
+  "H03-3": [
+    {
+      "jd_quote": "编写接口自动化测试用例",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "2027年毕业",
+      "hard_status": "unknown"
+    }
+  ],
+  "H04-1": [
+    {
+      "jd_quote": "组织可用性测试并修订交互方案",
+      "evidence_quotes": [
+        "组织可用性测试并根据操作错误率修订交互方案"
+      ],
+      "evidence_status": "direct"
+    },
+    {
+      "jd_quote": "每周到岗4天以上且实习周期3个月以上",
+      "hard_status": "met"
+    }
+  ],
+  "H04-2": [
+    {
+      "jd_quote": "组织可用性测试并修订交互方案",
+      "evidence_quotes": [
+        "根据导师反馈修订交互方案"
+      ],
+      "evidence_status": "partial"
+    },
+    {
+      "jd_quote": "每周到岗4天以上且实习周期3个月以上",
+      "hard_status": "unmet"
+    }
+  ],
+  "H04-3": [
+    {
+      "jd_quote": "组织可用性测试并修订交互方案",
+      "evidence_quotes": [],
+      "evidence_status": "none"
+    },
+    {
+      "jd_quote": "每周到岗4天以上且实习周期3个月以上",
+      "hard_status": "unknown"
+    }
+  ]
+}
