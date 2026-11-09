@@ -128,3 +128,24 @@ test("超过保留天数的缓存会被清理，较新的记录保留", () => {
     store.close();
   });
 });
+
+test("持久化删除凭证跨重启可用，删除记录会清除对应凭证", () => {
+  withStore((file) => {
+    const first = createSqliteStore({ file });
+    try {
+      first.setAnalysis("record", { analysis: { score: 70 } });
+      assert.equal(first.issueDeletionToken("missing", "hash-other"), false);
+      assert.equal(first.issueDeletionToken("record", "hash"), true);
+    } finally {
+      first.close();
+    }
+    const second = createSqliteStore({ file });
+    try {
+      assert.equal(second.resolveDeletionToken("hash", 60_000), "record");
+      assert.equal(second.deleteAnalysis("record"), true);
+      assert.equal(second.resolveDeletionToken("hash", 60_000), null);
+    } finally {
+      second.close();
+    }
+  });
+});

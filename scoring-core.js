@@ -1,7 +1,8 @@
 (function (root) {
   "use strict";
 
-  const PROTOCOL_VERSION = "scorecard-v1.1";
+  const PROTOCOL_VERSION = "scorecard-v1.3";
+  const MAX_INPUT_LENGTH = 20_000;
   const MAX_REQUIREMENTS = 20;
   const DIMENSIONS = Object.freeze({
     core_skills: { name: "核心专业技能", weight: 0.25 },
@@ -37,7 +38,7 @@
    - education：学历、专业、毕业时间和证书。
    - behavior：沟通、协作、推动、表达和团队行为。
    - conditions：地点、语言、到岗时间、实习周期等非教育条件。
-10. jd_quote尽量摘录连续岗位原文，不得改写成岗位没有表达的意思。
+10. jd_quote必须摘录连续岗位原文，且只包含该条要求对应的子句，不得改写成岗位没有表达的意思。
 11. evidence_rule写清简历中出现什么内容才可判断该条有证据，不写空泛标准。
 12. source_section只能使用responsibilities、qualification、other，用于说明该行来自岗位职责还是任职要求。
 13. 不要输出任何0—100分数、总分、匹配率或候选人评价。
@@ -68,7 +69,7 @@
 2. 关键词出现不等于具备能力，必须确认候选人的上下文、个人职责和实际任务。
 3. 团队成果不能自动归为个人成果，只有在简历明确说明个人贡献时才能计入。
 4. 没有任何可用内容时写“简历中未找到”，不得根据常识推测。
-5. 引用简历原文时尽量连续、简短，不改写事实。
+5. resume_quote 必须是可在简历中定位的连续原文，不改写、不拼接、不加省略号。direct、partial 和硬性条件 met、unmet 都需要提供原文；硬性条件冲突时引用简历中明确冲突的事实。
 6. 不输出0—100分数、总分、匹配率或“强烈推荐/不推荐”等最终结论。
 
 简历事实表：
@@ -156,6 +157,24 @@
       .trim();
   }
 
+  function redactPersonalText(value, { resume = false } = {}) {
+    const text = canonicalizeText(canonicalizeText(value)
+      .normalize("NFKC")
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/gu, ""));
+    const redacted = text
+      .replace(/(?:^|(?<=[\s|,，;；]))(?:姓名|联系人|候选人姓名|name|contact person) *: *[\p{L}·.'’-]+(?: +[a-z.'’-]+){0,2}/giu, "[姓名已隐藏]")
+      .replace(/[\w.+%-]+@[\w.-]+\.[a-z]{2,}\b/giu, "[邮箱已隐藏]")
+      .replace(/(?<!\d)\d{6}[ -]?\d{8}[ -]?\d{3}[\dXx](?!\d)/gu, "[证件号已隐藏]")
+      .replace(/(?<!\d)(?:\+?86[ -]?)?1[3-9](?:[ -]?\d){9}(?!\d)/gu, "[手机号已隐藏]")
+      .replace(/(?:微信(?:号)?|WeChat|QQ(?:号)?|身份证(?:号码)?|护照(?:号码)?|电话号码|联系电话|电话|手机(?:号码)?) *: *[+\w][\w().-]*/giu, "[联系方式已隐藏]")
+      .replace(/(?:家庭住址|通讯地址|详细住址|现住址|住址|address) *: *[^\n|;；]+/giu, "[住址已隐藏]");
+    return resume
+      ? redacted
+          .replace(/^[\p{Script=Han}]{1,3}同学(?=\n|$)/u, "[姓名已隐藏]")
+          .replace(/^[\p{Script=Han}]{2,4}(?=[ |\n]*(?:电话|手机|邮箱|\[(?:手机号|邮箱|联系方式)已隐藏\]))/u, "[姓名已隐藏]")
+      : redacted;
+  }
+
   function fnv1a(value) {
     let hash = 0x811c9dc5;
     const text = String(value || "");
@@ -187,32 +206,32 @@
     model,
     resume,
     job,
+    protocolVersion = PROTOCOL_VERSION,
     promptFingerprint = PROMPT_FINGERPRINT,
   }) {
-    return [
-      PROTOCOL_VERSION,
+    const parts = [
+      protocolVersion,
       String(model || ""),
       promptFingerprint,
       canonicalizeText(resume),
       canonicalizeText(job),
-    ].join("\n");
+    ];
+    return ["scorecard-v1.1", "scorecard-v1.2"].includes(protocolVersion)
+      ? parts.join("\n")
+      : JSON.stringify(parts);
   }
 
   function clamp(value, min = 0, max = 100) {
     return Math.max(min, Math.min(max, Math.round(value)));
   }
 
-  function finiteLevel(value, min, max, fallback = 0) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return fallback;
-    return Math.max(min, Math.min(max, Math.round(number)));
-  }
-
   function levelOrNull(value, min, max) {
-    if (value === null || value === undefined || value === "") return null;
-    const number = Number(value);
-    if (!Number.isFinite(number)) return null;
-    return Math.max(min, Math.min(max, Math.round(number)));
+    const number = typeof value === "string" && /^\d$/.test(value.trim())
+      ? Number(value)
+      : value;
+    return Number.isInteger(number) && number >= min && number <= max
+      ? number
+      : null;
   }
 
   function normalizeCategory(value) {
@@ -224,15 +243,9 @@
 
   function normalizeDimension(value, category = "core") {
     const normalized = asText(value).toLowerCase();
-    if (DIMENSIONS[normalized]) return normalized;
+    if (Object.hasOwn(DIMENSIONS, normalized)) return normalized;
     if (category === "hard") return "conditions";
     return "core_skills";
-  }
-
-  function normalizeRecency(value) {
-    if (value === null || value === undefined || value === "") return null;
-    const number = Number(value);
-    return Number.isFinite(number) ? finiteLevel(number, 0, 3, null) : null;
   }
 
   function statusFromEvidence(evidence) {
@@ -245,7 +258,7 @@
     return { status: "unknown", statusLabel: "未找到证据" };
   }
 
-  function scoreRequirement(evidence) {
+  function scoreRequirement(evidence, precise = false) {
     if (!evidence || evidence.evidence_status === "none") return 0;
     if (
       !Number.isFinite(evidence.relevance_level) ||
@@ -254,19 +267,10 @@
     ) {
       return 0;
     }
-    const parts = [
-      [clamp((evidence.relevance_level / 4) * 100), 0.4],
-      [clamp((evidence.evidence_level / 4) * 100), 0.35],
-      [clamp((evidence.ownership_level / 4) * 100), 0.15],
-    ];
-    if (Number.isFinite(evidence.recency_level)) {
-      parts.push([clamp((evidence.recency_level / 3) * 100), 0.1]);
-    }
-    const totalWeight = parts.reduce((sum, [, weight]) => sum + weight, 0);
-    return clamp(
-      parts.reduce((sum, [score, weight]) => sum + score * weight, 0) /
-        Math.max(totalWeight, 1),
-    );
+    if (evidence.relevance_level === 0 || evidence.evidence_level === 0) return 0;
+    const weighted = evidence.relevance_level * 40 + evidence.evidence_level * 35 + evidence.ownership_level * 15;
+    const score = (weighted / 360) * 100;
+    return precise ? score : clamp(score);
   }
 
   function normalizeJobRubric(raw, jobText = "") {
@@ -279,28 +283,25 @@
       throw new Error("岗位评分表格式错误：缺少job_requirements数组");
     }
 
-    const canonicalJob = canonicalizeText(jobText);
-    const seen = new Set();
-    const prepared = [];
+    const canonicalJob = normalizeQuoteText(jobText);
+    const byRequirement = new Map();
 
-    rows.forEach((row, index) => {
-      const category = normalizeCategory(row?.category || row?.type);
+    rows.forEach((row) => {
+      const jdQuote = asText(row?.jd_quote || row?.quote);
+      const quoteText = normalizeQuoteText(jdQuote);
+      const position = canonicalJob.indexOf(quoteText);
+      if (position < 0 || quoteText.length < 2) return;
+      const category = /优先|加分|有则更好|非必需|非必须|\bpreferred\b|\bnice.to.have\b/i.test(jdQuote)
+        ? "bonus"
+        : normalizeCategory(row?.category || row?.type);
       const dimension = normalizeDimension(row?.dimension, category);
       const requirement = asText(
         row?.requirement || row?.label || row?.title,
         "",
       );
-      const jdQuote = asText(row?.jd_quote || row?.quote, requirement);
-      if (!requirement && !jdQuote) return;
-      const requirementText = requirement || jdQuote;
-      const dedupeKey = `${canonicalizeText(jdQuote)}\u0000${canonicalizeText(
-        requirementText,
-      )}`;
-      if (seen.has(dedupeKey)) return;
-      seen.add(dedupeKey);
-
-      const quoteText = canonicalizeText(jdQuote);
-      prepared.push({
+      const requirementText = category === "hard" ? jdQuote : requirement || jdQuote;
+      const key = quoteText;
+      const candidate = {
         category,
         dimension,
         source_section: [
@@ -312,30 +313,27 @@
           : "other",
         requirement: requirementText,
         jd_quote: jdQuote,
-        evidence_rule: asText(
-          row?.evidence_rule,
-          "简历中出现与该要求直接相关的任务、方法、个人职责或结果",
-        ),
+        evidence_rule: category === "hard"
+          ? "对照该条岗位原文，引用简历中明确满足或冲突的事实；缺少事实时待确认。"
+          : asText(row?.evidence_rule, "简历中出现与该要求直接相关的任务、方法、个人职责或结果"),
         weight: category === "hard" ? 0 : category === "bonus" ? 0.5 : 1,
-        position: quoteText ? canonicalJob.indexOf(quoteText) : -1,
-        index,
-      });
+        position,
+      };
+      const previous = byRequirement.get(key);
+      if (!previous) {
+        byRequirement.set(key, candidate);
+      } else if (previous.category !== category || previous.dimension !== dimension) {
+        throw new Error("岗位评分表含分类冲突的重复要求");
+      } else if (JSON.stringify(candidate) < JSON.stringify(previous)) {
+        byRequirement.set(key, candidate);
+      }
     });
 
-    if (prepared.some((item) => item.position >= 0)) {
-      prepared.sort((left, right) => {
-        const leftMissing = left.position < 0;
-        const rightMissing = right.position < 0;
-        if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
-        if (!leftMissing && left.position !== right.position) {
-          return left.position - right.position;
-        }
-        const leftHash = fnv1a(`${left.jd_quote}\u0000${left.requirement}`);
-        const rightHash = fnv1a(`${right.jd_quote}\u0000${right.requirement}`);
-        if (leftHash !== rightHash) return leftHash < rightHash ? -1 : 1;
-        return left.index - right.index;
-      });
-    }
+    const prepared = [...byRequirement.entries()]
+      .sort(([leftKey, left], [rightKey, right]) =>
+        left.position - right.position || (leftKey < rightKey ? -1 : 1),
+      )
+      .map(([, item]) => item);
 
     const requirements = prepared
       .slice(0, MAX_REQUIREMENTS)
@@ -372,10 +370,13 @@
         ? "partial"
         : "none";
 
-    const relevanceLevel =
+    const parsedRelevance =
       evidenceStatus === "none"
         ? 0
         : levelOrNull(row?.relevance_level, 0, 4);
+    const relevanceLevel = evidenceStatus === "partial" && parsedRelevance !== null
+      ? Math.min(2, parsedRelevance)
+      : parsedRelevance;
     const evidenceLevelValue =
       evidenceStatus === "none" ? 0 : levelOrNull(row?.evidence_level, 0, 4);
     const ownershipLevel =
@@ -402,7 +403,7 @@
       ownership_level: ownershipLevel,
       levels_complete: levelsComplete,
       recency_level:
-        evidenceStatus === "none" ? null : normalizeRecency(row?.recency_level),
+        evidenceStatus === "none" ? null : levelOrNull(row?.recency_level, 0, 3),
       hard_status: ["met", "unmet", "unknown"].includes(
         asText(row?.hard_status).toLowerCase(),
       )
@@ -416,27 +417,47 @@
     };
   }
 
-  function normalizeResumeEvidence(raw, rubric) {
+  function normalizeQuoteText(value) {
+    return asText(value)
+      .replace(/\s+/gu, " ")
+      .replace(/(?<=\p{Script=Han}) (?=\p{Script=Han})/gu, "");
+  }
+
+  function normalizeResumeEvidence(raw, rubric, resumeText) {
+    const source = normalizeQuoteText(resumeText);
     const evidenceRows = Array.isArray(raw?.evidence_table)
       ? raw.evidence_table
       : Array.isArray(raw?.requirements)
         ? raw.requirements
         : [];
     const evidenceById = new Map();
+    const conflicts = new Set();
 
     evidenceRows.forEach((row) => {
       const normalized = normalizeEvidenceRow(row);
-      if (
-        normalized.requirement_id &&
-        !evidenceById.has(normalized.requirement_id)
-      ) {
-        evidenceById.set(normalized.requirement_id, normalized);
+      const id = normalized.requirement_id;
+      if (!id) return;
+      const previous = evidenceById.get(id);
+      if (!previous) {
+        evidenceById.set(id, normalized);
+      } else if (JSON.stringify(previous) !== JSON.stringify(normalized)) {
+        conflicts.add(id);
       }
     });
 
     const evidenceTable = rubric.requirements.map((requirement) => {
       const existing = evidenceById.get(requirement.id);
-      if (existing) return existing;
+      if (existing && !conflicts.has(requirement.id)) {
+        const quote = normalizeQuoteText(existing.resume_quote);
+        const requiresQuote =
+          existing.evidence_status !== "none" ||
+          (requirement.category === "hard" &&
+            existing.hard_status !== "unknown");
+        if (quote.length >= 2 && quote !== "简历中未找到" && source.includes(quote)) {
+          return existing;
+        }
+        if (!requiresQuote) return { ...existing, resume_quote: "简历中未找到" };
+      }
       return normalizeEvidenceRow({
         requirement_id: requirement.id,
         evidence_status: "none",
@@ -447,7 +468,11 @@
         recency_level: null,
         hard_status: "unknown",
         missing_parts: [requirement.evidence_rule],
-        explanation: "模型未返回该条证据，系统按无证据处理。",
+        explanation: conflicts.has(requirement.id)
+          ? "模型对该要求返回了冲突证据，系统按待确认处理。"
+          : existing
+          ? "模型引用无法在简历原文中核实，系统按无证据处理。"
+          : "模型未返回该条证据，系统按无证据处理。",
         interview_followup: "",
       });
     });
@@ -478,10 +503,11 @@
         source_quotes: Array.isArray(item?.source_quotes)
           ? item.source_quotes
               .map((quote) => asText(quote))
-              .filter(Boolean)
+              .filter((quote) => normalizeQuoteText(quote).length >= 2 && source.includes(normalizeQuoteText(quote)))
               .slice(0, 5)
           : [],
-      }));
+      }))
+      .filter((item) => item.source_quotes.length > 0);
 
     const suggestions = (Array.isArray(raw?.suggestions)
       ? raw.suggestions
@@ -509,6 +535,23 @@
       suggestions,
       summary: asText(raw?.summary),
     };
+  }
+
+  function validateModelEvidence(raw, rubric, resumeText) {
+    const rows = raw?.evidence_table ?? raw?.requirements;
+    const covered = new Set();
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        const status = asText(row?.evidence_status).toLowerCase();
+        if (["direct", "partial", "none"].includes(status)) {
+          covered.add(asText(row?.requirement_id).toUpperCase());
+        }
+      }
+    }
+    if (!rubric.requirements.every((requirement) => covered.has(requirement.id))) {
+      throw new Error("简历证据表缺少有效岗位编号或证据状态");
+    }
+    return normalizeResumeEvidence(raw, rubric, resumeText);
   }
 
   function buildJobRubricUserPrompt(jobText) {
@@ -589,7 +632,10 @@
     aiSuggestions,
   ) {
     const missing = scoredRequirements
-      .filter((requirement) => evidenceById.get(requirement.id)?.evidence_status === "none")
+      .filter((requirement) => {
+        const evidence = evidenceById.get(requirement.id);
+        return evidence?.evidence_status === "none" && (!evidence.assessment || evidence.assessment === "none");
+      })
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 3)
       .map(
@@ -601,6 +647,7 @@
 
   function buildAnalysis(rubric, resumeData, resumeText) {
     const requirements = rubric.requirements;
+    const anchored = Array.isArray(rubric.unclassified);
     const evidenceById = new Map(
       resumeData.evidence_table.map((item) => [item.requirement_id, item]),
     );
@@ -608,11 +655,28 @@
       (requirement) => requirement.category !== "hard",
     );
 
+    const unresolved = (requirement) => anchored &&
+      ["unassessed", "conflict", "uncertain"].includes(evidenceById.get(requirement.id)?.assessment);
+    const unresolvedScored = scoredRequirements.filter(unresolved).length;
+    const incompleteRubric = anchored && rubric.unclassified.length > 0;
+    const incomplete = incompleteRubric || unresolvedScored > 0;
+
     const evidenceItems = requirements.map((requirement) => {
       const evidence = evidenceById.get(requirement.id);
       return {
         ...statusFromEvidence(evidence),
         requirementId: requirement.id,
+        ...(anchored ? {
+          clauseId: requirement.clauseId,
+          evidenceSpanIds: evidence.resume_item_ids,
+          candidateSpanIds: evidence.candidate_span_ids,
+          assessment: evidence.assessment,
+          ...((evidence.assessment !== "verified" || requirement.category === "hard") ? {
+            statusLabel: { unassessed: "未核验", uncertain: "待确认", conflict: "证据冲突", none: "未找到证据" }[evidence.assessment] ||
+              ({ met: "已满足", unmet: "不满足", unknown: "待确认" })[evidence.hard_status],
+          } : {}),
+          jobAnchor: { start: requirement.start, end: requirement.end },
+        } : {}),
         category: requirement.category,
         label: requirement.requirement,
         jobEvidence: requirement.jd_quote,
@@ -623,7 +687,7 @@
         recencyLevel: evidence.recency_level,
         levelsComplete: evidence.levels_complete !== false,
         requirementScore:
-          requirement.category === "hard"
+          requirement.category === "hard" || unresolved(requirement)
             ? null
             : scoreRequirement(evidence),
         explanation: evidence.explanation,
@@ -654,25 +718,30 @@
             : "岗位评分表未涉及该维度，不纳入匹配分。",
         };
       }
+      if (dimensionRequirements.some(unresolved)) {
+        return {
+          key, name: spec.name, weight: spec.weight, score: null, contribution: null,
+          assessed: false, detail: "该维度还有待核验条目，暂不发布维度分。",
+        };
+      }
       const weightSum = dimensionRequirements.reduce(
         (sum, requirement) => sum + requirement.weight,
         0,
       );
-      const score = clamp(
-        dimensionRequirements.reduce(
+      const exactScore = dimensionRequirements.reduce(
           (sum, requirement) =>
             sum +
-            scoreRequirement(evidenceById.get(requirement.id)) *
+            scoreRequirement(evidenceById.get(requirement.id), anchored) *
               requirement.weight,
           0,
-        ) / weightSum,
-      );
+        ) / weightSum;
+      const score = clamp(exactScore);
       return {
         key,
         name: spec.name,
         weight: spec.weight,
         score,
-        contribution: Math.round(score * spec.weight * 10) / 10,
+        contribution: anchored ? exactScore * spec.weight : Math.round(score * spec.weight * 10) / 10,
         assessed: true,
         detail: `由岗位评分表中的${dimensionRequirements.length}条固定要求计算；未找到的证据按0分计入。`,
       };
@@ -685,11 +754,11 @@
       (sum, dimension) => sum + DIMENSIONS[dimension.key].weight,
       0,
     );
-    const score = scoredRequirements.length && dimensionWeightSum
+    const score = !incomplete && scoredRequirements.length && dimensionWeightSum
       ? clamp(
           assessedDimensions.reduce(
             (sum, dimension) =>
-              sum + dimension.score * DIMENSIONS[dimension.key].weight,
+              sum + (anchored ? dimension.contribution : dimension.score * dimension.weight),
             0,
           ) / dimensionWeightSum,
         )
@@ -702,7 +771,7 @@
     );
     const unknownScored = scoredRequirements.filter(
       (requirement) =>
-        evidenceById.get(requirement.id)?.evidence_status === "none",
+        evidenceById.get(requirement.id)?.evidence_status === "none" && !unresolved(requirement),
     ).length;
     const hardRequirements = requirements.filter(
       (requirement) => requirement.category === "hard",
@@ -753,6 +822,7 @@
             : status === "unmet"
               ? "不满足"
               : "待确认",
+        ...(anchored ? { clauseId: requirement.clauseId, evidenceSpanIds: evidence.resume_item_ids } : {}),
         detail:
           evidence.explanation ||
           evidence.resume_quote ||
@@ -776,7 +846,7 @@
       blocked: unmetHardRequirements.length > 0,
       status: unmetHardRequirements.length
         ? "unmet"
-        : unknownHard
+        : unknownHard || incompleteRubric
           ? "unknown"
           : hardRequirements.length
             ? "pass"
@@ -791,18 +861,19 @@
         ? Math.min(rawScore, 44)
         : rawScore;
 
+    const reportedScore = anchored ? rawScore : finalScore;
     const fitLevel =
-      finalScore === null
+      reportedScore === null
         ? "无法评分"
-        : finalScore >= 82
+        : reportedScore >= 82
           ? "较为匹配"
-          : finalScore >= 65
+          : reportedScore >= 65
             ? "部分匹配"
-            : finalScore >= 45
+            : reportedScore >= 45
               ? "证据偏弱"
               : "匹配不足";
     const missingLabels = scoredRequirements
-      .filter((requirement) => evidenceById.get(requirement.id)?.evidence_status === "none")
+      .filter((requirement) => evidenceById.get(requirement.id)?.evidence_status === "none" && !unresolved(requirement))
       .map((requirement) => requirement.id)
       .slice(0, 8);
     const noticeParts = [];
@@ -846,9 +917,10 @@
       })),
       totalWeight: dimensionWeightSum,
       rawTotal: rawScore,
-      total: finalScore,
-      formula:
-        "单条要求分 = 相关度40% + 证据强度35% + 主导度15% + 时效10%；维度分 = 该维度要求分按权重平均；总分 = Σ(维度分 × 维度权重) / Σ已评估维度权重；硬性条件不满足时总分封顶44。",
+      total: reportedScore,
+      formula: anchored
+        ? "单条要求按相关度、证据强度和主导度以40∶35∶15加权。维度分按条款权重平均，匹配分按维度权重平均，硬性条件另列。"
+        : "单条要求分按相关度、证据强度和主导度以40∶35∶15加权（部分证据相关度最高2级，时效单独展示）；维度分 = 该维度要求分按权重平均；总分 = Σ(维度分 × 维度权重) / Σ已评估维度权重；硬性条件不满足时总分封顶44。",
     };
     const baseExplanation =
       "总分由程序按固定岗位评分表计算：先根据证据等级计算单项分，再按岗位维度权重聚合；未找到证据仍然保留在该条要求中并计0分，不删除维度分母。缺少等级信息的证据同样按0分计入并单独提示，不使用默认等级。";
@@ -857,25 +929,47 @@
       : "";
 
     return {
-      protocolVersion: PROTOCOL_VERSION,
+      protocolVersion: anchored ? rubric.version : PROTOCOL_VERSION,
       score: finalScore,
+      ...(anchored ? {
+        matchScore: rawScore,
+        analysisStatus: incomplete ? "incomplete" : "complete",
+        coverage: {
+          jobChecked: rubric.checkedClauses,
+          jobTotal: rubric.totalClauses,
+          coreVerified: requirements.filter((row) => row.category === "core" && evidenceById.get(row.id)?.assessment === "verified").length,
+          coreTotal: requirements.filter((row) => row.category === "core").length,
+          hardUnknown: unknownHard,
+        },
+      } : {}),
       rawScore,
       hardGate,
       fitLevel,
       confidence,
       confidenceScore,
-      summary:
-        resumeData.summary ||
-        (finalScore === null
+      summary: anchored
+        ? incomplete
+          ? "部分条款尚未核验，已保留可核查结果，暂不发布完整匹配分。"
+          : rawScore === null
+            ? "岗位没有可计算的匹配条款，请查看硬性条件。"
+            : `现有材料匹配分为${rawScore}分。硬性条件单独列示。`
+        : (finalScore === null
           ? "岗位中没有可计算的核心要求，暂无法形成匹配分。"
           : hardGate.blocked
             ? `硬性条件未满足，综合分封顶为${finalScore}分（原始证据分${rawScore}）。该结果只计算简历中已提供证据，未找到的内容按0分计入。`
             : `现有材料匹配分为${finalScore}分；该结果只计算简历中已提供证据，未找到的内容按0分计入，但不代表候选人不具备该项能力。`),
-      scoreExplanation: [baseExplanation, hardGateExplanation]
+      scoreExplanation: anchored
+        ? "匹配分按已核验的证据计算。已检查但没有证据的条款计零，未完成核验时不发布完整匹配分。"
+        : [baseExplanation, hardGateExplanation]
         .filter(Boolean)
         .join(" "),
-      notice:
-        noticeParts.length > 0
+      notice: anchored
+        ? [
+            incompleteRubric ? `${rubric.unclassified.length}条岗位内容尚未分类。` : "",
+            unresolvedScored ? `${unresolvedScored}条匹配要求尚未核验。` : "",
+            unknownHard ? `${unknownHard}条硬性条件待确认。` : "",
+          ].filter(Boolean).join(" ")
+        : noticeParts.length > 0
           ? `现有材料仍可评分，但判断置信度为${confidence}：${noticeParts.join("；")}。`
           : "",
       dimensions,
@@ -911,8 +1005,11 @@
     buildAnalysisCacheKeyInput,
     buildRubricCacheKeyInput,
     canonicalizeText,
+    redactPersonalText,
+    MAX_INPUT_LENGTH,
     normalizeJobRubric,
     normalizeResumeEvidence,
+    validateModelEvidence,
     buildAnalysis,
     scoreRequirement,
   });

@@ -105,8 +105,9 @@
       : "--";
     const finalScore = Number.isFinite(analysis.score) ? analysis.score : "--";
     banner.hidden = false;
-    document.querySelector("#hardGateBannerText").textContent =
-      `岗位硬性条件 ${requirementIds} 明确未满足。按规则，原始证据分 ${rawScore} 不能作为最终结论，综合分已封顶为 ${finalScore}。建议先确认报考资格，或调整目标岗位。`;
+    document.querySelector("#hardGateBannerText").textContent = Object.hasOwn(analysis, "matchScore")
+      ? `岗位硬性条件 ${requirementIds} 明确未满足。请查看条件依据并确认资格。`
+      : `岗位硬性条件 ${requirementIds} 明确未满足。按规则，原始证据分 ${rawScore} 不能作为最终结论，综合分已封顶为 ${finalScore}。建议先确认报考资格，或调整目标岗位。`;
   }
 
   function renderScoring(analysis, meta) {
@@ -125,7 +126,7 @@
             <td>${escapeHtml(item.name)}</td>
             <td>${Math.round((item.weight || 0) * 100)}%</td>
             <td>${hasScore ? item.score : "—"}</td>
-            <td>${Number.isFinite(item.contribution) ? item.contribution : "—"}</td>
+            <td>${Number.isFinite(item.contribution) ? Number(item.contribution.toFixed(2)) : "—"}</td>
           </tr>
         `;
       })
@@ -201,6 +202,7 @@
       other: "其他",
     };
     const jobRows = analysis.jobRubric?.requirements || [];
+    const pendingClauses = analysis.jobRubric?.unclassified || [];
     const jobTable = document.querySelector("#jobRubricTable");
     jobTable.innerHTML = `
       <thead>
@@ -228,6 +230,13 @@
             `,
           )
           .join("")}
+        ${pendingClauses.map((clause) => `
+          <tr>
+            <td>${escapeHtml(clause.id)}</td>
+            <td>${escapeHtml(sourceLabels[clause.section] || "其他")}</td>
+            <td>未分类</td><td>—</td><td>${escapeHtml(clause.quote)}</td><td>—</td>
+          </tr>
+        `).join("")}
       </tbody>
     `;
 
@@ -265,7 +274,7 @@
                           "未命名事实",
                       )}</td>
                       <td>${escapeHtml(item.time || "未提供")}</td>
-                      <td>${item.facts
+                      <td>${(item.facts?.length ? item.facts : item.source_quotes || [])
                         .map((fact) => escapeHtml(fact))
                         .join("<br />") || "未提取到明确事实"}</td>
                     </tr>
@@ -336,26 +345,32 @@
   }
 
   function render(payloadValue) {
-    const { analysis, meta = {}, input = {} } = payloadValue;
+    const { analysis, meta = {} } = payloadValue;
     const hardGate = deriveHardGate(analysis);
-    const hasScore = Number.isFinite(analysis.score);
+    const displayScore = Object.hasOwn(analysis, "matchScore") ? analysis.matchScore : analysis.score;
+    const hasScore = Number.isFinite(displayScore);
+    const offline = meta.source === "offline";
     const jobTitle = meta.jobTitle || "目标岗位诊断";
 
     document.querySelector("#jobTitle").textContent = jobTitle;
     document.querySelector("#reportSubtitle").textContent =
       `${meta.candidateLine || "求职者"} · 基于当前简历和目标岗位生成`;
     document.querySelector("#fitLevel").textContent = analysis.fitLevel || "--";
-    document.querySelector("#overallScore").textContent = hasScore ? analysis.score : "—";
+    document.querySelector("#overallScore").textContent = hasScore ? displayScore : "—";
     document.querySelector("#scoreLabel").textContent = hasScore
       ? `${analysis.fitLevel || "参考结果"} · 缺失证据按0分计入`
-      : "没有可计算的岗位核心要求";
-    document.querySelector("#evidenceReliability").textContent = analysis.confidence || "低";
+      : offline
+        ? "离线检查不计算匹配分"
+        : analysis.analysisStatus === "incomplete" ? "有条款尚未核验" : "没有可计算的岗位核心要求";
+    const coverage = analysis.coverage;
     const readiness = analysis.readiness || {};
-    document.querySelector("#confidenceLabel").textContent =
-      `判断置信度：${analysis.confidence || "低"}${
-        Number.isFinite(readiness.score)
-          ? ` · 简历准备度 ${readiness.score}`
-          : ""
+    document.querySelector("#evidenceReliability").textContent = coverage
+      ? `${coverage.coreVerified} / ${coverage.coreTotal}`
+      : offline ? "离线" : analysis.confidence || "低";
+    document.querySelector("#confidenceLabel").textContent = coverage
+      ? `核心条款有据 ${coverage.coreVerified}/${coverage.coreTotal} · 岗位已评估 ${coverage.jobChecked}/${coverage.jobTotal} · 门槛待确认 ${coverage.hardUnknown}`
+      : offline ? "本地材料检查" : `判断置信度：${analysis.confidence || "低"}${
+        Number.isFinite(readiness.score) ? ` · 简历准备度 ${readiness.score}` : ""
       }`;
     document.querySelector("#hardGateLabel").textContent = hardGate.label;
     document.querySelector("#hardGateDetail").textContent = hardGate.detail;
@@ -368,14 +383,14 @@
     document.querySelector("#modelLabel").textContent =
       meta.source === "deepseek"
         ? `${meta.model || "deepseek-flash"} · DeepSeek分析`
-        : "本地模拟结果";
+        : offline ? "离线材料检查" : "本地模拟结果";
     const sourceBadge = document.querySelector("#sourceBadge");
     sourceBadge.textContent =
       meta.source === "deepseek"
         ? meta.cached
           ? "DeepSeek缓存结果"
           : "DeepSeek分析结果"
-        : "本地模拟结果";
+        : offline ? "离线材料检查" : "本地模拟结果";
     sourceBadge.classList.toggle("is-ai", meta.source === "deepseek");
     sourceBadge.title =
       meta.source === "deepseek"
@@ -385,9 +400,9 @@
         : meta.fallbackReason || "当前使用本地模拟结果";
 
     const scoreRing = document.querySelector("#scoreRing");
-    scoreRing.style.setProperty("--score", hasScore ? analysis.score : 0);
+    scoreRing.style.setProperty("--score", hasScore ? displayScore : 0);
     scoreRing.classList.toggle("is-empty", !hasScore);
-    document.querySelector("#scoreValue").textContent = hasScore ? analysis.score : "—";
+    document.querySelector("#scoreValue").textContent = hasScore ? displayScore : "—";
     document.querySelector("#scoreDenominator").textContent = hasScore ? "/ 100" : "暂不评分";
 
     const notice = document.querySelector("#diagnosisNotice");
@@ -447,21 +462,27 @@
     );
     if (!confirmed) return;
 
-    const input = readPayload()?.input || {};
+    const report = readPayload();
+    const input = report?.input || {};
+    const meta = report?.meta || {};
+    const body = meta.deletionToken
+      ? { token: meta.deletionToken }
+      : meta.source === "deepseek" && meta.protocolVersion !== "scorecard-v1.4" && input.resume && input.job
+        ? { resume: input.resume, job: input.job } : null;
     let outcome = "local";
     button.disabled = true;
     button.textContent = "正在删除…";
 
     if (
-      input.resume &&
-      input.job &&
+      body &&
       (location.protocol === "http:" || location.protocol === "https:")
     ) {
       try {
         const response = await fetch("./api/forget", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resume: input.resume, job: input.job }),
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(10_000),
         });
         const data = await response.json().catch(() => ({}));
         if (response.ok) {
@@ -472,6 +493,13 @@
       } catch {
         outcome = "offline";
       }
+    }
+
+    if (outcome === "offline") {
+      button.disabled = false;
+      button.textContent = "重试删除本次记录";
+      window.alert("本机服务未确认删除，已保留报告中的删除凭证，恢复连接后可重试。");
+      return;
     }
 
     try {
@@ -490,9 +518,7 @@
         ? "服务器缓存和当前浏览器中的报告均已清除。"
         : outcome === "missing"
           ? "当前浏览器中的报告已清空；服务器中没有找到对应缓存。"
-          : outcome === "offline"
-            ? "当前浏览器中的报告已清空；未能连接本地服务确认缓存删除。"
-            : "当前浏览器中的报告已清空。";
+          : "当前浏览器中的报告已清空。";
     empty.querySelector("a").textContent = "重新填写材料";
   }
 

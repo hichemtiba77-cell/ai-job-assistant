@@ -3,6 +3,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadLocalEnvironment } from "../env-loader.mjs";
 import { summarizeRuns } from "./consistency-stats.mjs";
+import "../scoring-core.js";
+import "../anchored-scoring.js";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const localEnvironment = loadLocalEnvironment(join(ROOT, ".env.local"));
@@ -60,8 +62,12 @@ async function loadCases() {
 }
 
 async function directScore(caseItem, config) {
+  const redact = globalThis.AIJobAssistantAnchoredScoring.redact;
+  const resume = redact(caseItem.resume, { resume: true });
+  const job = redact(caseItem.job);
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
+    redirect: "error",
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json",
@@ -72,7 +78,7 @@ async function directScore(caseItem, config) {
         { role: "system", content: BASELINE_SYSTEM_PROMPT },
         {
           role: "user",
-          content: `【简历】\n${caseItem.resume}\n\n【目标岗位】\n${caseItem.job}`,
+          content: `【简历】\n${resume}\n\n【目标岗位】\n${job}`,
         },
       ],
       temperature: 0,

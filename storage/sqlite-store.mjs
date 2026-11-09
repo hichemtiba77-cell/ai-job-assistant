@@ -18,11 +18,12 @@ export function createSqliteStore({ file }) {
   if (!file) {
     throw new Error("SQLite 存储需要 file 路径");
   }
-  mkdirSync(dirname(file), { recursive: true });
+  if (file !== ":memory:") mkdirSync(dirname(file), { recursive: true });
 
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 5000");
+  db.exec("PRAGMA secure_delete = ON");
   db.exec(`
     CREATE TABLE IF NOT EXISTS analysis_cache (
       key TEXT PRIMARY KEY,
@@ -59,6 +60,18 @@ export function createSqliteStore({ file }) {
       usage_json TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS deletion_tokens (
+      token_hash TEXT PRIMARY KEY,
+      analysis_key TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_deletion_tokens_key ON deletion_tokens(analysis_key);
+    CREATE TRIGGER IF NOT EXISTS clear_analysis_tokens
+    AFTER DELETE ON analysis_cache
+    BEGIN
+      DELETE FROM deletion_tokens WHERE analysis_key = OLD.key;
+    END;
 
     CREATE INDEX IF NOT EXISTS idx_llm_runs_created_at ON llm_runs(created_at);
   `);
@@ -108,6 +121,18 @@ export function createSqliteStore({ file }) {
         cache_key, stage, model, request_hash, raw_response, usage_json, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `),
+    saveToken: db.prepare(`
+      INSERT INTO deletion_tokens (token_hash, analysis_key, created_at)
+      SELECT ?, key, ? FROM analysis_cache WHERE key = ?
+    `),
+    findToken: db.prepare("SELECT analysis_key FROM deletion_tokens WHERE token_hash = ? AND created_at >= ?"),
+    purgeTokensBefore: db.prepare("DELETE FROM deletion_tokens WHERE created_at < ?"),
+    trimTokens: db.prepare(`
+      DELETE FROM deletion_tokens WHERE token_hash IN (
+        SELECT token_hash FROM deletion_tokens WHERE analysis_key = ?
+        ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET 30
+      )
+    `),
     countRuns: db.prepare("SELECT COUNT(*) AS count FROM llm_runs"),
     deleteAnalysis: db.prepare("DELETE FROM analysis_cache WHERE key = ?"),
     deleteRunsByCacheKey: db.prepare(
@@ -116,15 +141,18 @@ export function createSqliteStore({ file }) {
     purgeAnalysisBefore: db.prepare(
       "DELETE FROM analysis_cache WHERE created_at < ?",
     ),
+    purgeRubricBefore: db.prepare("DELETE FROM job_rubric_cache WHERE created_at < ?"),
+    trimAnalyses: db.prepare("DELETE FROM analysis_cache WHERE key IN (SELECT key FROM analysis_cache ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET ?)"),
+    trimRubrics: db.prepare("DELETE FROM job_rubric_cache WHERE key IN (SELECT key FROM job_rubric_cache ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET ?)"),
     purgeRunsBefore: db.prepare("DELETE FROM llm_runs WHERE created_at < ?"),
   };
 
   return {
     file,
 
-    getAnalysis(key) {
+    getAnalysis(key, maxAgeMs = Infinity) {
       const row = statements.getAnalysis.get(key);
-      if (!row) return null;
+      if (!row || Date.now() - Date.parse(row.created_at) >= maxAgeMs) return null;
       return {
         analysis: fromJson(row.result_json),
         usage: fromJson(row.usage_json),
@@ -149,9 +177,11 @@ export function createSqliteStore({ file }) {
       );
     },
 
-    getRubric(key) {
+    getRubric(key, maxAgeMs = Infinity) {
       const row = statements.getRubric.get(key);
-      return row ? fromJson(row.rubric_json) : null;
+      return row && Date.now() - Date.parse(row.created_at) < maxAgeMs
+        ? fromJson(row.rubric_json)
+        : null;
     },
 
     setRubric(key, rubric, meta = {}) {
@@ -193,14 +223,37 @@ export function createSqliteStore({ file }) {
       );
     },
 
+    issueDeletionToken(key, tokenHash) {
+      const saved = statements.saveToken.run(tokenHash, nowIso(), key).changes > 0;
+      if (saved) statements.trimTokens.run(key);
+      return saved;
+    },
+
+    resolveDeletionToken(tokenHash, maxAgeMs) {
+      const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+      return statements.findToken.get(tokenHash, cutoff)?.analysis_key ?? null;
+    },
+
     countRuns() {
       return Number(statements.countRuns.get().count);
     },
 
     deleteAnalysis(key) {
-      const removed = Number(statements.deleteAnalysis.run(key).changes) > 0;
-      statements.deleteRunsByCacheKey.run(key);
-      return removed;
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const analyses = statements.deleteAnalysis.run(key).changes;
+        const runs = statements.deleteRunsByCacheKey.run(key).changes;
+        db.exec("COMMIT");
+        return analyses > 0 || runs > 0;
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    },
+
+    trim(maxEntries) {
+      statements.trimAnalyses.run(maxEntries);
+      statements.trimRubrics.run(maxEntries);
     },
 
     purgeOlderThan(days) {
@@ -210,6 +263,8 @@ export function createSqliteStore({ file }) {
       ).toISOString();
       const removed = statements.purgeAnalysisBefore.run(cutoff);
       statements.purgeRunsBefore.run(cutoff);
+      statements.purgeRubricBefore.run(cutoff);
+      statements.purgeTokensBefore.run(cutoff);
       return Number(removed.changes);
     },
 

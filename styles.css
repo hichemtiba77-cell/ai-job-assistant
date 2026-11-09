@@ -1188,7 +1188,7 @@ textarea:focus {
 }
 
 .input-card.has-pdf .resume-divider,
-.input-card.has-pdf textarea,
+.input-card.has-pdf #resumeText,
 .input-card.has-pdf .input-footer {
   display: none;
 }
@@ -1197,9 +1197,65 @@ textarea:focus {
   margin-top: 12px;
 }
 
-.input-card.has-pdf textarea {
-  min-height: 0;
+.pdf-review-toggle {
+  align-self: flex-start;
+  margin-top: 12px;
 }
+
+.pdf-review {
+  margin: 12px 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.pdf-review h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.pdf-review p,
+.pdf-review-controls,
+.pdf-review-confirm {
+  font-size: 12px;
+}
+
+.pdf-review p {
+  margin: 5px 0 10px;
+  color: var(--muted);
+}
+
+.pdf-review-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.pdf-review select {
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.pdf-review textarea {
+  min-height: 9em;
+  font-size: 13px;
+}
+
+.pdf-review-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.pdf-review-confirm[hidden] {
+  display: none;
+}
+
 #resumePdf:focus-visible + .pdf-dropzone { outline: 3px solid var(--blue); outline-offset: 4px; }
 @media (max-width: 640px) { .pdf-dropzone { flex-wrap: wrap; padding: 18px; } .pdf-file-card { flex-wrap: wrap; } .pdf-file-actions { width: 100%; justify-content: flex-end; } }
 
@@ -1406,4 +1462,31 @@ textarea:focus {
 .consent-check a {
   color: var(--blue);
   font-weight: 700;
+}
+
+.privacy-preview {
+  width: min(680px, calc(100% - 2rem));
+  max-height: 88vh;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 1.5rem;
+  color: #172536;
+}
+
+.privacy-preview::backdrop {
+  background: rgb(15 23 42 / 56%);
+}
+
+.privacy-preview textarea {
+  display: block;
+  width: 100%;
+  margin: 0.35rem 0 1rem;
+  resize: vertical;
+}
+
+.privacy-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
