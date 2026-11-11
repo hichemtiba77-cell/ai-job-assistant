@@ -1,4 +1,5 @@
 .lake-page {
+  --lake-workspace-max: 1320px;
   --ink: #17383b;
   --muted: #456264;
   --blue: #205a57;
@@ -28,7 +29,7 @@
   position: relative;
   display: grid;
   grid-template-columns: clamp(222px, 24%, 305px) minmax(0, 1fr);
-  width: min(1320px, calc(100% - 72px));
+  width: min(var(--lake-workspace-max), calc(100% - 72px));
   margin: clamp(24px, 7vh, 80px) auto 36px;
   border-top: 5px solid #8eaf9d;
   background: var(--surface);

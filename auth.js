@@ -72,6 +72,7 @@
   const recoveryLink = cloud.callback.get("type") === "recovery" && cloud.callback.has("access_token");
 
   function finish() {
+    window.ResumeMascotReminders?.noteSignIn();
     location.replace(next);
   }
 

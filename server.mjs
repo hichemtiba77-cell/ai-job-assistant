@@ -14,6 +14,7 @@ import {
 } from "./progress-events.mjs";
 import "./scoring-core.js";
 import "./anchored-scoring.js";
+import "./resume-chat-api.js";
 
 const [STAGE_RUBRIC, STAGE_EVIDENCE, STAGE_SCORING] = ANALYSIS_STAGES;
 
@@ -30,6 +31,7 @@ const STRATEGY = useAnchors ? ANCHORED : SCORING;
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const API_KEY = process.env.DEEPSEEK_API_KEY || "";
+const CHAT_API_KEY = process.env.DEEPSEEK_CHAT_API_KEY?.trim() || "";
 const BASE_URL = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(
   /\/+$/,
   "",
@@ -550,7 +552,9 @@ const PUBLIC_FILES = new Set([
   "auth.html", "history.html", "interview.html",
   "account.css", "lake-workspace.css", "report-theme.css", "interview.css",
   "auth.js", "history.js", "cloud.js", "interview.js", "interview-core.js", "interview-prompts.js",
-  "background/zzu.png", "vendor/supabase/supabase.js",
+  "background/zzu.png", "assets/resume-mascot.png", "vendor/supabase/supabase.js",
+  "resume-mascot.css", "resume-mascot.js", "assets/resume-mascot-reading.png",
+  "resume-chat.css", "resume-chat.js", "resume-chat-api.js", "resume-reminders.js",
 ]);
 
 async function serveStatic(request, response) {
@@ -629,6 +633,21 @@ async function handleInterview(request, response, operation) {
   }
 }
 
+async function handleResumeChat(request, response) {
+  const { requestReply, ChatError } = globalThis.AIJobAssistantResumeChat;
+  try {
+    const { messages } = await getJsonBody(request, 100_000);
+    const reply = await requestReply(CHAT_API_KEY, messages);
+    sendJson(response, 200, { reply });
+  } catch (error) {
+    if (error instanceof RequestError || error instanceof ChatError) {
+      sendJson(response, error.status, { error: error.message });
+    } else {
+      sendJson(response, 502, { error: "聊天暂时不可用，请重试。" });
+    }
+  }
+}
+
 export function createApplicationServer() {
   const purge = () => {
     safeStore(() => store.purgeOlderThan(ACTIVE_TTL_DAYS));
@@ -655,7 +674,7 @@ export function createApplicationServer() {
       return;
     }
 
-    if (request.method === "POST" && ["/api/analyze", "/api/forget", "/api/interview/start", "/api/interview/feedback"].includes(request.url)) {
+    if (request.method === "POST" && ["/api/analyze", "/api/forget", "/api/interview/start", "/api/interview/feedback", "/api/resume-chat"].includes(request.url)) {
       const origin = request.headers.origin;
       const host = request.headers.host;
       if (request.headers["sec-fetch-site"] === "cross-site" ||
@@ -671,6 +690,11 @@ export function createApplicationServer() {
 
     if (request.method === "POST" && request.url === "/api/analyze") {
       await handleAnalyze(request, response);
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/resume-chat") {
+      await handleResumeChat(request, response);
       return;
     }
 

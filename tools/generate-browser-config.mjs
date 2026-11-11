@@ -15,6 +15,9 @@ if (!key) {
 const outputPath = join(root, "config.local.js");
 const values = {
   DEEPSEEK_API_KEY: key,
+  ...(process.env.DEEPSEEK_CHAT_API_KEY && {
+    DEEPSEEK_CHAT_API_KEY: process.env.DEEPSEEK_CHAT_API_KEY,
+  }),
   DEEPSEEK_BASE_URL:
     process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
   DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL || "deepseek-flash",

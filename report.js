@@ -5,6 +5,7 @@
   const cloud = window.CareerCloud;
   const signedInUser = (await cloud?.requireSession())?.user;
   if (!signedInUser) return;
+  window.ResumeMascotReminders?.start(signedInUser.id);
   const reportId = new URLSearchParams(location.search).get("id");
   const tabs = Array.from(document.querySelectorAll("[data-tab]"));
   const panels = Array.from(document.querySelectorAll("[data-panel]"));
@@ -450,6 +451,7 @@
       try {
         const rows = cloud.value(await cloud.client.from("analysis_reports").delete().eq("id", reportId).select("id"));
         if (rows.length !== 1) throw new Error("Unavailable report");
+        window.ResumeMascotReminders?.forgetReport(reportId);
         location.replace("./history.html");
       } catch {
         button.disabled = false;
@@ -510,6 +512,7 @@
       // 浏览器禁用存储时没有可清理的本地记录。
     }
 
+    window.ResumeMascotReminders?.forgetReport(report?.reportId || report?.meta?.createdAt);
     showEmptyState();
     const empty = document.querySelector("#reportEmpty");
     empty.querySelector("h1").textContent = "记录已删除";
@@ -549,6 +552,18 @@
   }
 
   render(payload);
+  window.ResumeMascotReminders?.watchReport({
+    id: reportId || payload.reportId || payload.meta?.createdAt,
+    suggestion: payload.analysis.suggestions?.find?.((item) => typeof item === "string" && item.trim()),
+    end: document.querySelector("#suggestionList li:last-child"),
+    openSuggestions() {
+      const tab = tabs.find((item) => item.dataset.tab === "actions");
+      if (!tab) return;
+      activateTab(tab);
+      tab.scrollIntoView({ block: "start" });
+      tab.focus({ preventScroll: true });
+    },
+  });
   const interview = document.querySelector("#interviewEntry");
   interview.hidden = !payload.input?.job;
   if (reportId) {

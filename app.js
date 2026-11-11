@@ -10,6 +10,7 @@
   }
   const signedInUser = (await cloud?.requireSession())?.user;
   if (!signedInUser) return;
+  window.ResumeMascotReminders?.start(signedInUser.id);
   let archive;
   let pendingSave;
   let restoredUpload;
@@ -50,6 +51,7 @@
   const previewStatus = document.querySelector("#previewStatus");
   const offlineReviewButton = document.querySelector("#offlineReviewButton");
   const consentCheckbox = document.querySelector("#consentCheckbox");
+  const resumeMascot = document.querySelector("#resumeMascot");
   const analysisProgress = document.querySelector("#analysisProgress");
   const progressTitle = document.querySelector("#progressTitle");
   const progressElapsed = document.querySelector("#progressElapsed");
@@ -77,10 +79,12 @@
       item.classList.toggle("is-active", index === active);
       item.classList.remove("is-error");
     });
+    window.ResumeMascotReminders?.setAnalysisProgress?.(stage);
   }
 
   function startProgress() {
     window.clearInterval(progressTimer);
+    resumeMascot?.setAttribute("data-state", "working");
     analysisProgress.hidden = false;
     analysisProgress.classList.remove("is-error");
     progressTitle.textContent = "正在分析简历与岗位";
@@ -104,16 +108,19 @@
 
   function finishProgress(note) {
     stopProgressTimer();
+    resumeMascot?.setAttribute("data-state", "done");
     progressSteps.forEach((item) => {
       item.classList.add("is-done");
       item.classList.remove("is-active", "is-error");
     });
     progressTitle.textContent = "分析完成，正在打开报告";
     progressNote.textContent = note || "";
+    window.ResumeMascotReminders?.setAnalysisProgress?.("done");
   }
 
   function failProgress(message) {
     stopProgressTimer();
+    resumeMascot?.removeAttribute("data-state");
     analysisProgress.classList.add("is-error");
     progressTitle.textContent = "分析失败";
     progressSteps.forEach((item) => {
@@ -124,6 +131,7 @@
     });
     progressNote.textContent = message;
     retryButton.hidden = false;
+    window.ResumeMascotReminders?.setAnalysisProgress?.("failed");
   }
 
   function handleProgressEvent(data) {
@@ -136,6 +144,7 @@
       });
       progressNote.textContent =
         "命中历史缓存：相同简历和岗位复用了上次结果，本次没有再次调用模型。";
+      window.ResumeMascotReminders?.setAnalysisProgress?.("cache");
       return;
     }
     if (STAGE_ORDER.includes(data.stage)) {
@@ -631,6 +640,7 @@
             fresh: Boolean(freshToggle?.checked),
             onProgress: handleProgressEvent,
           });
+      const reportId = crypto.randomUUID();
       sessionStorage.setItem(
         DIAGNOSIS_KEY,
         JSON.stringify({
@@ -640,10 +650,11 @@
           archive: archiveAtStart,
           source,
           ownerId: signedInUser.id,
-          reportId: crypto.randomUUID(),
+          reportId,
         }),
       );
       sessionStorage.removeItem(INPUT_KEY);
+      window.ResumeMascotReminders?.noteAnalysisComplete?.(reportId);
       finishProgress(
         result.meta?.cached
           ? "命中历史缓存：复用了上次的相同结果，本次没有再次调用模型。"

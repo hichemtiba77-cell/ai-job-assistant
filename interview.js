@@ -4,6 +4,7 @@
   const cloud = window.CareerCloud;
   const signedInUser = (await cloud?.requireSession())?.user;
   if (!signedInUser) return;
+  window.ResumeMascotReminders?.start(signedInUser.id);
   const STORAGE_KEY = "aijob:interview:v1";
   const setup = document.querySelector("#interviewSetup");
   const practice = document.querySelector("#interviewPractice");

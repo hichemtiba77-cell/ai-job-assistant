@@ -56,7 +56,10 @@
     const actions = node("div", null, "archive-actions");
     actions.append(
       link("继续修改", "index", "version", version.id),
-      confirmDelete("resume_versions", version.id, "删除这个简历版本及关联的诊断报告？", () => details.remove()),
+      confirmDelete("resume_versions", version.id, "删除这个简历版本及关联的诊断报告？", () => {
+        for (const report of version.analysis_reports) window.ResumeMascotReminders?.forgetReport(report.id);
+        details.remove();
+      }),
     );
     details.append(summary, text, actions);
 
@@ -92,7 +95,12 @@
     const actions = node("div", null, "archive-actions");
     actions.append(
       node("h3", resume.title),
-      confirmDelete("resumes", resume.id, "删除这份简历及其全部版本和诊断报告？", () => article.remove()),
+      confirmDelete("resumes", resume.id, "删除这份简历及其全部版本和诊断报告？", () => {
+        for (const report of resume.resume_versions.flatMap((version) => version.analysis_reports)) {
+          window.ResumeMascotReminders?.forgetReport(report.id);
+        }
+        article.remove();
+      }),
     );
     article.append(actions);
     for (const version of newestFirst(resume.resume_versions)) article.append(versionDetails(version));
@@ -101,6 +109,7 @@
 
   const user = (await cloud?.requireSession())?.user;
   if (!user) return;
+  window.ResumeMascotReminders?.start(user.id);
 
   try {
     document.querySelector("#accountEmail").textContent = user.email || "";
