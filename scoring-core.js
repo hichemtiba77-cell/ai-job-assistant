@@ -718,23 +718,27 @@
             : "岗位评分表未涉及该维度，不纳入匹配分。",
         };
       }
-      if (dimensionRequirements.some(unresolved)) {
-        return {
-          key, name: spec.name, weight: spec.weight, score: null, contribution: null,
-          assessed: false, detail: "该维度还有待核验条目，暂不发布维度分。",
-        };
-      }
       const weightSum = dimensionRequirements.reduce(
         (sum, requirement) => sum + requirement.weight,
         0,
       );
+      const pendingWeight = dimensionRequirements.reduce(
+        (sum, requirement) => sum + (unresolved(requirement) ? requirement.weight : 0),
+        0,
+      );
       const exactScore = dimensionRequirements.reduce(
-          (sum, requirement) =>
-            sum +
-            scoreRequirement(evidenceById.get(requirement.id), anchored) *
-              requirement.weight,
+          (sum, requirement) => unresolved(requirement) ? sum :
+            sum + scoreRequirement(evidenceById.get(requirement.id), anchored) * requirement.weight,
           0,
         ) / weightSum;
+      if (pendingWeight) {
+        return {
+          key, name: spec.name, weight: spec.weight, score: null, contribution: null,
+          assessed: false,
+          scoreRange: { min: exactScore, max: exactScore + 100 * pendingWeight / weightSum },
+          detail: "该维度仍有待核验条目。",
+        };
+      }
       const score = clamp(exactScore);
       return {
         key,
@@ -763,6 +767,20 @@
           ) / dimensionWeightSum,
         )
       : null;
+    let matchScoreRange = null;
+    if (anchored && !incompleteRubric && unresolvedScored > 0 && unresolvedScored < scoredRequirements.length) {
+      // Keep all applicable dimension weights in the denominator, including unchecked items.
+      let weight = 0;
+      let min = 0;
+      let max = 0;
+      for (const dimension of dimensions) {
+        if (!dimension.assessed && !dimension.scoreRange) continue;
+        weight += dimension.weight;
+        min += dimension.scoreRange ? dimension.scoreRange.min * dimension.weight : dimension.contribution;
+        max += dimension.scoreRange ? dimension.scoreRange.max * dimension.weight : dimension.contribution;
+      }
+      matchScoreRange = { min: clamp(min / weight), max: clamp(max / weight) };
+    }
 
     const readiness = buildReadiness(
       resumeText,
@@ -789,7 +807,7 @@
       );
     }).length;
     const unknownRatio = scoredRequirements.length
-      ? (unknownScored + incompleteScored) / scoredRequirements.length
+      ? (unknownScored + incompleteScored + unresolvedScored) / scoredRequirements.length
       : 0;
     const hardUnknownRatio = hardRequirements.length
       ? unknownHard / hardRequirements.length
@@ -863,7 +881,9 @@
 
     const reportedScore = anchored ? rawScore : finalScore;
     const fitLevel =
-      reportedScore === null
+      matchScoreRange
+        ? "部分核验"
+        : reportedScore === null
         ? "无法评分"
         : reportedScore >= 82
           ? "较为匹配"
@@ -933,10 +953,13 @@
       score: finalScore,
       ...(anchored ? {
         matchScore: rawScore,
+        matchScoreRange,
         analysisStatus: incomplete ? "incomplete" : "complete",
         coverage: {
           jobChecked: rubric.checkedClauses,
           jobTotal: rubric.totalClauses,
+          evidenceChecked: scoredRequirements.length - unresolvedScored,
+          evidenceTotal: scoredRequirements.length,
           coreVerified: requirements.filter((row) => row.category === "core" && evidenceById.get(row.id)?.assessment === "verified").length,
           coreTotal: requirements.filter((row) => row.category === "core").length,
           hardUnknown: unknownHard,
@@ -948,7 +971,9 @@
       confidence,
       confidenceScore,
       summary: anchored
-        ? incomplete
+        ? matchScoreRange
+          ? `当前匹配参考区间为${matchScoreRange.min}–${matchScoreRange.max}分，仍有${unresolvedScored}条匹配要求待核验。`
+          : incomplete
           ? "部分条款尚未核验，已保留可核查结果，暂不发布完整匹配分。"
           : rawScore === null
             ? "岗位没有可计算的匹配条款，请查看硬性条件。"
@@ -959,7 +984,9 @@
             ? `硬性条件未满足，综合分封顶为${finalScore}分（原始证据分${rawScore}）。该结果只计算简历中已提供证据，未找到的内容按0分计入。`
             : `现有材料匹配分为${finalScore}分；该结果只计算简历中已提供证据，未找到的内容按0分计入，但不代表候选人不具备该项能力。`),
       scoreExplanation: anchored
-        ? "匹配分按已核验的证据计算。已检查但没有证据的条款计零，未完成核验时不发布完整匹配分。"
+        ? matchScoreRange
+          ? "区间保留全部岗位条款权重。下限为已核验证据得分，上限按待核验条款各得100分估计。硬性条件单独列示。"
+          : "匹配分按已核验的证据计算。已检查但没有证据的条款计零，未完成核验时不发布完整匹配分。"
         : [baseExplanation, hardGateExplanation]
         .filter(Boolean)
         .join(" "),

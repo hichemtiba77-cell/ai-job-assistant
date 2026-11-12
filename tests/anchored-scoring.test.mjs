@@ -46,8 +46,46 @@ test("漏答只补请求漏掉的条目，部分核验无匹配分且不能和�
   assert.deepEqual(asks.map((ids) => ids.length), [3, 1]);
   assert.equal(analysis.matchScore, null);
   assert.equal(analysis.analysisStatus, "incomplete");
+  assert.deepEqual(analysis.matchScoreRange, { min: 23, max: 56 });
+  assert.equal(analysis.coverage.evidenceChecked, 2);
+  assert.equal(analysis.coverage.evidenceTotal, 3);
   assert.deepEqual(analysis.evidenceItems.map((row) => row.assessment), ["verified", "none", "unassessed"]);
   assert.deepEqual(analysis.evidenceItems.map((row) => row.requirementScore).slice(1), [0, null]);
+});
+
+test("缺少关键词命中仍提交候选片段，无效证据引用补核一次", async () => {
+  const job = "具备沟通协调能力";
+  const resume = Array.from({ length: 12 }, (_, index) => `组织第${index + 1}次跨组会议`).join("；");
+  const { value: rubric } = await protocol.createRubric(job, classify);
+  let calls = 0;
+  const { value } = await protocol.createEvidence(resume, rubric, async (_, prompt) => {
+    calls += 1;
+    const [{ id, allowedSpanIds }] = JSON.parse(prompt).requirements;
+    assert.equal(allowedSpanIds.length, 8);
+    return response([{ id, status: "direct", spanIds: [calls === 1 ? "wrong" : allowedSpanIds[0]] }]);
+  });
+  assert.equal(calls, 2);
+  const result = core.buildAnalysis(rubric, value, resume);
+  assert.ok(result.matchScore > 0);
+  assert.equal(result.matchScoreRange, null);
+});
+
+test("重复且冲突的模型行补核后才采用，硬性门槛待确认不阻断匹配分", async () => {
+  const job = "负责Python数据分析；每周到岗4天以上";
+  const resume = "独立使用Python清洗数据";
+  const { value: rubric } = await protocol.createRubric(job, classify);
+  let calls = 0;
+  const { value } = await protocol.createEvidence(resume, rubric, async (_, prompt) => {
+    calls += 1;
+    const [{ id, allowedSpanIds }] = JSON.parse(prompt).requirements;
+    const verified = { id, status: "direct", spanIds: allowedSpanIds.slice(0, 1) };
+    return response(calls === 1 ? [verified, { id, status: "none", spanIds: [] }] : [verified]);
+  });
+  const result = core.buildAnalysis(rubric, value, resume);
+  assert.equal(calls, 2);
+  assert.equal(result.hardGate.status, "unknown");
+  assert.ok(result.matchScore > 0);
+  assert.equal(result.analysisStatus, "complete");
 });
 
 test("固定证据反复回放保持相同分数和原文锚点，跨项目成果不能替代个人贡献", async () => {

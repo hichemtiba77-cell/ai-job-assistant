@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { readFile, realpath } from "node:fs/promises";
@@ -552,7 +553,7 @@ const PUBLIC_FILES = new Set([
   "auth.html", "history.html", "interview.html",
   "account.css", "lake-workspace.css", "report-theme.css", "interview.css",
   "auth.js", "history.js", "cloud.js", "interview.js", "interview-core.js", "interview-prompts.js",
-  "background/zzu.png", "assets/resume-mascot.png", "vendor/supabase/supabase.js",
+  "background/zzu.png", "data/bac1.jpg", "data/bac2.jpg", "assets/resume-mascot.png", "vendor/supabase/supabase.js",
   "resume-mascot.css", "resume-mascot.js", "assets/resume-mascot-reading.png",
   "resume-chat.css", "resume-chat.js", "resume-chat-api.js", "resume-reminders.js",
 ]);
@@ -730,9 +731,25 @@ export function createApplicationServer() {
 }
 
 if (isMain) {
+  const openInBrowser = process.platform === "win32" && process.argv.includes("--open");
+  if (openInBrowser && [...OCR_ASSETS.values()].some((asset) => !existsSync(join(ROOT, "node_modules", asset)))) {
+    console.error("缺少扫描件识别依赖。请在项目目录运行 npm ci --ignore-scripts --cache .\\tmp\\npm-cache 后重试。");
+    process.exit(1);
+  }
+
+  const listenHost = openInBrowser ? "127.0.0.1" : HOST;
   const server = createApplicationServer();
-  server.listen(PORT, HOST, () => {
-    console.log(`职引者本地服务：http://${HOST}:${PORT}`);
+  if (openInBrowser) {
+    server.on("error", (error) => {
+      console.error(error.code === "EADDRINUSE"
+        ? `本地端口 ${PORT} 已被占用。请关闭旧服务窗口，或在 .env.local 中换一个 PORT 后重试。`
+        : `本地服务启动失败：${error.message}`);
+      process.exitCode = 1;
+    });
+  }
+  server.listen(PORT, listenHost, () => {
+    const url = `http://${listenHost}:${server.address().port}`;
+    console.log(`职引者本地服务：${url}`);
     console.log(`模型：${MODEL_DISPLAY_NAME}（API别名：${MODEL}）`);
     console.log(`评分协议：${STRATEGY.PROTOCOL_VERSION}`);
     console.log(
@@ -740,5 +757,12 @@ if (isMain) {
         localEnvironment.loaded ? ".env.local" : "进程环境变量"
       }）`,
     );
+    if (openInBrowser) {
+      const browser = spawn("rundll32.exe", ["url.dll,FileProtocolHandler", url], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+      browser.on("error", () => console.error(`请在浏览器中手动打开 ${url}`));
+    }
   });
 }

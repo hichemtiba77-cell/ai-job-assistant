@@ -129,7 +129,7 @@
   text-decoration: none;
 }
 .lake-rail .lake-rail-action:hover, .lake-rail .report-nav-actions .report-action-secondary:hover { background: #2c5451; }
-.lake-rail .journey-steps { display: grid; width: 100%; margin: 0; gap: 0; }
+.lake-rail .journey-steps { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; margin: 0; gap: 0; }
 .lake-rail .journey-steps li {
   grid-template-columns: 30px minmax(0, 1fr);
   gap: 7px;
@@ -209,7 +209,6 @@
   transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 .lake-content .input-card:nth-child(2) {
-  margin-top: 56px;
   border-radius: 92px 26px 26px 26px;
   background:
     radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px) 0 0 / 20px 20px,
@@ -244,7 +243,7 @@
   background: radial-gradient(circle, rgba(139, 92, 246, 0.18), transparent 70%);
 }
 .lake-content .input-card:hover {
-  transform: translateY(-5px);
+  transform: none;
   border-color: rgba(32, 93, 88, 0.35);
   box-shadow: 0 26px 54px rgba(16, 44, 65, 0.16);
 }
@@ -288,6 +287,42 @@
   background: linear-gradient(180deg, #ffffff, #f7faff);
   border-radius: 16px;
   box-shadow: 0 12px 30px rgba(16, 44, 65, 0.06);
+}
+.lake-content .material-editor { display: flex; flex-direction: column; min-width: 0; }
+.lake-content .material-editor > textarea { min-height: 220px; }
+.lake-content .input-card.has-pdf .pdf-file-card { margin-top: 0; }
+#resumeArchive {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px 12px;
+  max-width: none;
+  margin: 16px 0 0;
+}
+#resumeArchive label { min-width: 0; font-size: 13px; }
+#resumeArchive input { font-weight: 400; }
+#resumeArchive .primary-button {
+  grid-area: 1 / 2;
+  justify-self: end;
+  min-width: 0;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+#resumeArchive p { grid-column: 1 / -1; }
+#resumeArchive .archive-meta { font-size: 12px; overflow-wrap: anywhere; }
+#resumeArchive:has(label[hidden]) .archive-meta { grid-area: 1 / 1; align-self: center; }
+
+@media (min-width: 641px) {
+  .lake-content .input-grid { row-gap: 0; align-items: stretch; }
+  .lake-content .input-grid > .input-card {
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+  }
+  .lake-content .input-card > .card-heading { grid-row: 1; }
+  .lake-content .input-card > .material-editor { grid-row: 2; }
+  .lake-content .input-card > .input-footer { grid-row: 3; }
+  .lake-content .input-card > .future-note { grid-row: 4; }
 }
 
 /* Report overview and active tab share the same workspace seam. */
@@ -436,6 +471,10 @@
   transform: translateY(-2px);
   box-shadow: 0 12px 26px rgba(16, 44, 65, 0.1);
 }
+.lake-report .report-gap-layout { align-items: start; }
+.lake-report .constraint-item { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+.lake-report .constraint-item p { grid-column: 1 / -1; }
+.lake-report .constraint-item :is(strong, p) { overflow-wrap: anywhere; }
 
 /* Difficulty selection and practice use the same matte work surface. */
 .lake-interview-guide { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 22px; padding: 15px 18px; border-top: 1px solid var(--line); background: var(--background); }
@@ -595,6 +634,15 @@
   .lake-content .input-grid { grid-template-columns: minmax(0, 1fr); }
   .lake-content .input-card, .lake-content .input-card:nth-child(2) { padding: 20px 16px; border-left: 1px solid rgba(160, 180, 172, 0.5); }
   .lake-content .input-card:nth-child(2) { margin-top: 16px; border-top: 0; }
+  .lake-content .pdf-dropzone {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 0;
+    gap: 4px 12px;
+    padding: 12px;
+  }
+  .lake-content .pdf-mark { grid-row: span 2; width: 42px; height: 50px; }
+  .lake-content .pdf-action { justify-self: start; margin: 0; padding: 0; }
   .lake-report-overview .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lake-report-overview .report-summary article:first-of-type { grid-column: 1 / -1; }
   .lake-report .report-tab { font-size: 12px; }

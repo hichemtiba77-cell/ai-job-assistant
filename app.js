@@ -714,7 +714,7 @@
     if (location.protocol === "file:" && directEnabled) {
       modeTitle.textContent = "DeepSeek AI 求职诊断";
       modeDescription.textContent =
-        "测试直连已启用，上传 PDF 并填写岗位后即可生成分析。";
+        "测试直连已启用，可上传 PDF 或粘贴简历。";
       return;
     }
     if (location.protocol === "file:") {

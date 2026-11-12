@@ -4,25 +4,37 @@
   const MAX_PIXELS = 4_000_000;
   const MAX_SIDE = 3000;
   const OCR_TIMEOUT = 45_000;
+  const fileMode = location.protocol === "file:";
   let library;
+  let fileRuntime;
+
+  function loadScript(src, globalName, errorMessage) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      const finish = () => {
+        script.remove();
+        if (window[globalName]) resolve(window[globalName]);
+        else reject(new Error(errorMessage));
+      };
+      script.onload = finish;
+      script.onerror = finish;
+      document.head.append(script);
+    });
+  }
 
   function loadLibrary() {
-    if (!library) {
-      library = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "/ocr-assets/tesseract.min.js";
-        script.onload = () => resolve(window.Tesseract);
-        script.onerror = () => {
-          script.remove();
-          reject(new Error("无法加载识别组件，请在项目目录执行 npm install 后重试。"));
-        };
-        document.head.append(script);
-      }).catch((error) => {
-        library = null;
-        throw error;
-      });
-    }
+    const src = fileMode ? "./node_modules/tesseract.js/dist/tesseract.min.js" : "/ocr-assets/tesseract.min.js";
+    library ||= loadScript(src, "Tesseract", "无法加载识别组件，请在项目目录安装 OCR 依赖后重试。")
+      .catch((error) => { library = null; throw error; });
     return library;
+  }
+
+  function loadFileRuntime() {
+    fileRuntime ||= loadScript("./node_modules/.aijob-ocr/runtime.js", "AIJobAssistantFileOcr",
+      "本地识别组件尚未准备。请在项目目录运行 npm run prepare:ocr 后刷新页面。")
+      .catch((error) => { fileRuntime = null; throw error; });
+    return fileRuntime;
   }
 
   async function waitFor(promise, signal) {
@@ -44,6 +56,7 @@
 
   function createSession(signal) {
     let worker;
+    let workerUrl;
     let initialization;
     let closed = false;
     let failure;
@@ -52,18 +65,32 @@
       closed = true;
       const current = worker;
       worker = null;
-      await current?.terminate();
+      try {
+        await current?.terminate();
+      } finally {
+        if (workerUrl) URL.revokeObjectURL(workerUrl);
+        workerUrl = null;
+      }
     }
 
     async function getWorker() {
       if (!initialization) {
         const Tesseract = await waitFor(loadLibrary(), signal);
+        let paths = {
+          workerPath: "/ocr-assets/worker.min.js",
+          corePath: "/ocr-assets/core",
+          langPath: "/ocr-assets/lang",
+        };
+        if (fileMode) {
+          const runtime = await waitFor(loadFileRuntime(), signal);
+          signal?.throwIfAborted();
+          workerUrl = URL.createObjectURL(new Blob([runtime.workerSource], { type: "text/javascript" }));
+          paths = { workerPath: workerUrl, langPath: runtime.langPath, cacheMethod: "none" };
+        }
         signal?.throwIfAborted();
         initialization = new Promise((resolve, reject) => {
           Tesseract.createWorker(["chi_sim", "eng"], Tesseract.OEM.LSTM_ONLY, {
-            workerPath: "/ocr-assets/worker.min.js",
-            corePath: "/ocr-assets/core",
-            langPath: "/ocr-assets/lang",
+            ...paths,
             workerBlobURL: false,
             errorHandler: () => reject(new Error("无法初始化识别引擎，请重试或手动补录。")),
           }).then(async (created) => {
@@ -82,9 +109,6 @@
     async function recognize(page, rotation = 0) {
       signal?.throwIfAborted();
       if (failure) throw failure;
-      if (location.protocol === "file:") {
-        throw new Error("扫描件识别需使用 npm start 启动的本地页面，也可手动补录文字。");
-      }
 
       const angle = (page.rotate + rotation + 360) % 360;
       const original = page.getViewport({ scale: 1, rotation: angle });

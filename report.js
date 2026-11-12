@@ -162,8 +162,13 @@
     target.innerHTML = (dimensions || [])
       .map((item) => {
         const hasScore = Number.isFinite(item.score);
+        const range = item.scoreRange;
+        const hasRange = Number.isFinite(range?.min) && Number.isFinite(range?.max) &&
+          (range.min > 0 || range.max < 100);
         const unavailableLabel = item.hardOnly
           ? "仅硬性条件"
+          : range
+            ? "待核验"
           : item.assessed === false
             ? "未涉及"
             : "暂不评分";
@@ -171,14 +176,15 @@
           <div class="dimension-item${hasScore ? "" : " is-unknown"}">
             <div class="dimension-top">
               <strong>${escapeHtml(item.name)}</strong>
-              <span>${hasScore ? `${item.score} / 100` : unavailableLabel}</span>
+              <span>${hasScore ? `${item.score} / 100` : hasRange
+                ? `${Math.round(range.min)}–${Math.round(range.max)} / 100` : unavailableLabel}</span>
             </div>
             <div class="dimension-track" aria-hidden="true">
               <div class="dimension-fill" style="width: ${hasScore ? item.score : 0}%"></div>
             </div>
             ${
               hasScore
-                ? `<small class="dimension-weight">权重 ${Math.round((item.weight || 0) * 100)}% · 加权贡献 ${item.contribution}</small>`
+                ? `<small class="dimension-weight">权重 ${Math.round((item.weight || 0) * 100)}% · 加权贡献 ${Number.isFinite(item.contribution) ? Number(item.contribution.toFixed(2)) : "—"}</small>`
                 : ""
             }
             <p>${escapeHtml(item.detail || "")}</p>
@@ -350,6 +356,9 @@
     const hardGate = deriveHardGate(analysis);
     const displayScore = Object.hasOwn(analysis, "matchScore") ? analysis.matchScore : analysis.score;
     const hasScore = Number.isFinite(displayScore);
+    const range = analysis.matchScoreRange;
+    const hasRange = Number.isFinite(range?.min) && Number.isFinite(range?.max);
+    const scoreText = hasScore ? displayScore : hasRange ? `${range.min}–${range.max}` : "—";
     const offline = meta.source === "offline";
     const jobTitle = meta.jobTitle || "目标岗位诊断";
 
@@ -357,9 +366,11 @@
     document.querySelector("#reportSubtitle").textContent =
       `${meta.candidateLine || "求职者"} · 基于当前简历和目标岗位生成`;
     document.querySelector("#fitLevel").textContent = analysis.fitLevel || "--";
-    document.querySelector("#overallScore").textContent = hasScore ? displayScore : "—";
+    document.querySelector("#overallScore").textContent = scoreText;
     document.querySelector("#scoreLabel").textContent = hasScore
       ? `${analysis.fitLevel || "参考结果"} · 缺失证据按0分计入`
+      : hasRange
+        ? "参考区间 · 有条款尚未核验"
       : offline
         ? "离线检查不计算匹配分"
         : analysis.analysisStatus === "incomplete" ? "有条款尚未核验" : "没有可计算的岗位核心要求";
@@ -369,7 +380,12 @@
       ? `${coverage.coreVerified} / ${coverage.coreTotal}`
       : offline ? "离线" : analysis.confidence || "低";
     document.querySelector("#confidenceLabel").textContent = coverage
-      ? `核心条款有据 ${coverage.coreVerified}/${coverage.coreTotal} · 岗位已评估 ${coverage.jobChecked}/${coverage.jobTotal} · 门槛待确认 ${coverage.hardUnknown}`
+      ? [
+          `核心条款有据 ${coverage.coreVerified}/${coverage.coreTotal}`,
+          `岗位分类 ${coverage.jobChecked}/${coverage.jobTotal}`,
+          Number.isInteger(coverage.evidenceTotal) && `证据核验 ${coverage.evidenceChecked}/${coverage.evidenceTotal}`,
+          `门槛待确认 ${coverage.hardUnknown}`,
+        ].filter(Boolean).join(" · ")
       : offline ? "本地材料检查" : `判断置信度：${analysis.confidence || "低"}${
         Number.isFinite(readiness.score) ? ` · 简历准备度 ${readiness.score}` : ""
       }`;
@@ -403,8 +419,8 @@
     const scoreRing = document.querySelector("#scoreRing");
     scoreRing.style.setProperty("--score", hasScore ? displayScore : 0);
     scoreRing.classList.toggle("is-empty", !hasScore);
-    document.querySelector("#scoreValue").textContent = hasScore ? displayScore : "—";
-    document.querySelector("#scoreDenominator").textContent = hasScore ? "/ 100" : "暂不评分";
+    document.querySelector("#scoreValue").textContent = scoreText;
+    document.querySelector("#scoreDenominator").textContent = hasScore ? "/ 100" : hasRange ? "参考区间" : "暂不评分";
 
     const notice = document.querySelector("#diagnosisNotice");
     notice.hidden = !analysis.notice;
