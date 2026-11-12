@@ -15,11 +15,44 @@
       }
 
       .privacy-main {
+        position: relative;
         margin: 48px 0 60px;
         padding: 36px 40px;
-        border: 1px solid var(--line);
+        overflow: hidden;
+        border: 1px solid rgba(160, 180, 172, 0.5);
         border-radius: 24px;
-        background: #fff;
+        background:
+          radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.1), transparent 55%),
+          linear-gradient(160deg, #ffffff, #f1f6f3);
+        box-shadow: 0 20px 50px rgba(16, 44, 65, 0.1);
+      }
+
+      .privacy-main::before {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 5px;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6 55%, #ec4899);
+        content: "";
+      }
+
+      .privacy-main h2 {
+        position: relative;
+        margin: 30px 0 10px;
+        padding-left: 14px;
+        font-size: 17px;
+      }
+
+      .privacy-main h2::before {
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        left: 0;
+        width: 4px;
+        border-radius: 99px;
+        background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+        content: "";
       }
 
       .privacy-shell .back-button {
