@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>登录职引者</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./lake-workspace.css" />
+    <link rel="stylesheet" href="./account.css" />
+    <link rel="stylesheet" href="./resume-mascot.css" />
+    <link rel="stylesheet" href="./resume-chat.css" />
+    <script src="./resume-mascot.js" defer></script>
+    <script src="./resume-chat.js" defer></script>
+    <script src="./resume-reminders.js" defer></script>
+  </head>
+  <body class="lake-page auth-page">
+    <header class="auth-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">职</span>
+        <span><strong>职引者</strong><small>郑大校园求职</small></span>
+      </div>
+    </header>
+    <main class="auth-card">
+      <div class="auth-avatar" id="authAvatar" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" width="56" height="56" aria-hidden="true">
+          <circle cx="32" cy="24" r="9" />
+          <path d="M16 48a16 16 0 0 1 32 0M9 17v8m-4-4h8m41-11v10m-5-5h10" />
+        </svg>
+      </div>
+      <div data-auth-root></div>
+    </main>
+    <footer class="auth-footer">
+      <a href="./privacy.html">隐私与数据说明</a>
+    </footer>
+    <script src="./vendor/supabase/supabase.js" defer></script>
+    <script src="./cloud.js" defer></script>
+    <script src="./auth.js" defer></script>
+  </body>
+</html>

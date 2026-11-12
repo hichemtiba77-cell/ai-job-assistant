@@ -1,0 +1,37 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+config.local.js
+
+# Temporary working files
+tmp/
+*.log
+
+# Local cache database
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+~$*
+
+# Local test data should stay out of Git unless anonymized
+test-uploads/
+
+# Private competition and personal application materials
+赛事文件/
+output/docx/
+
+# Generated upload packages
+output/github/
+output/test-package/
+output/eval/
